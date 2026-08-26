@@ -24,3 +24,12 @@ export async function createCategoria(input: {
   const response = await api.post<Categoria>("/categorias", input);
   return response.data;
 }
+
+export async function updateCategoria(id: string, input: Partial<Parameters<typeof createCategoria>[0]>) {
+  const response = await api.put<Categoria>(`/categorias/${id}`, input);
+  return response.data;
+}
+
+export async function deleteCategoria(id: string) {
+  await api.delete(`/categorias/${id}`);
+}
