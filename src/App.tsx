@@ -10,6 +10,7 @@ import NotFound from "@/pages/NotFound";
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/auth/ChangePasswordPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const PersonasPage = lazy(() => import("@/pages/personas/PersonasPage"));
 const ClientesPage = lazy(() => import("@/pages/personas/ClientesPage"));
 const ProveedoresPage = lazy(() => import("@/pages/personas/ProveedoresPage"));
 const EmpresasPage = lazy(() => import("@/pages/admin/EmpresasPage"));
@@ -36,6 +37,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/clientes" element={<ClientesPage />} />
                 <Route path="/proveedores" element={<ProveedoresPage />} />
                 <Route path="/admin/empresas" element={<EmpresasPage />} />

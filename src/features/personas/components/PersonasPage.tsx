@@ -14,9 +14,10 @@ interface PersonasPageProps {
   title: string;
   singularLabel: string;
   description: string;
+  showHeader?: boolean;
 }
 
-export function PersonasPage({ tipo, title, singularLabel, description }: PersonasPageProps) {
+export function PersonasPage({ tipo, title, singularLabel, description, showHeader = true }: PersonasPageProps) {
   const [sort, setSort] = useState<SortState | null>(null);
   const [selected, setSelected] = useState<Persona | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -60,11 +61,19 @@ export function PersonasPage({ tipo, title, singularLabel, description }: Person
 
   return (
     <div>
-      <PageHeader
-        title={title}
-        description={description}
-        actions={<Button onClick={() => setIsCreateOpen(true)}>+ Nuevo {singularLabel}</Button>}
-      />
+      {showHeader && (
+        <PageHeader
+          title={title}
+          description={description}
+          actions={<Button onClick={() => setIsCreateOpen(true)}>+ Nuevo {singularLabel}</Button>}
+        />
+      )}
+
+      {!showHeader && (
+        <div className="mb-4 flex justify-end">
+          <Button onClick={() => setIsCreateOpen(true)}>+ Nuevo {singularLabel}</Button>
+        </div>
+      )}
 
       <DataTable
         columns={columns}
