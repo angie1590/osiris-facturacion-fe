@@ -2,12 +2,12 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BACKEND_DIR="$ROOT_DIR/../osiris-inventario-be"
-BACKEND_SCRIPT="$BACKEND_DIR/dev-up.sh"
+BACKEND_DIR="$ROOT_DIR/../osiris-facturacion-be"
+COMPOSE_FILE="$BACKEND_DIR/docker-compose.yml"
 
-if [ ! -f "$BACKEND_SCRIPT" ]; then
-  echo "No se encontro $BACKEND_SCRIPT"
+if [ ! -f "$COMPOSE_FILE" ]; then
+  echo "No se encontro $COMPOSE_FILE"
   exit 1
 fi
 
-exec "$BACKEND_SCRIPT" "$@"
+exec docker compose -f "$COMPOSE_FILE" up --build -d "$@"

@@ -64,7 +64,7 @@ export default function LoginPage() {
       } else if (!apiErr?.response) {
         // No hubo respuesta del servidor: API caída o proxy/red mal configurados.
         setLoginError(
-          "No se pudo conectar con el servidor. Verifica que la API esté corriendo (http://localhost:8000).",
+          "No se pudo conectar con el servidor. Verifica que la API esté corriendo (http://localhost:8002).",
         );
       } else {
         setLoginError(

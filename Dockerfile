@@ -7,7 +7,7 @@ RUN npm ci
 
 COPY . .
 
-ENV VITE_API_PROXY_TARGET=http://api:8000
+ENV VITE_API_PROXY_TARGET=http://host.docker.internal:8002
 
 EXPOSE 5173
 
