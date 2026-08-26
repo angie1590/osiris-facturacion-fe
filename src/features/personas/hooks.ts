@@ -5,6 +5,9 @@ import {
   createProveedorSociedad,
   createPersona,
   getPersonas,
+  getClientes,
+  getProveedoresPersona,
+  getProveedoresSociedad,
   getTiposCliente,
   type PersonaCreateInput,
   type ProveedorSociedadInput,
@@ -30,6 +33,18 @@ export function useTiposCliente() {
     queryKey: ["tipos-cliente"],
     queryFn: getTiposCliente,
   });
+}
+
+export function useClientes() {
+  return useQuery({ queryKey: ["clientes"], queryFn: getClientes });
+}
+
+export function useProveedoresPersona() {
+  return useQuery({ queryKey: ["proveedores-persona"], queryFn: getProveedoresPersona });
+}
+
+export function useProveedoresSociedad() {
+  return useQuery({ queryKey: ["proveedores-sociedad"], queryFn: getProveedoresSociedad });
 }
 
 export function useCreateCliente() {

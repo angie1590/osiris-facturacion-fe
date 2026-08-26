@@ -6,15 +6,25 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  useClientes,
   useCreateCliente,
   useCreatePersona,
   useCreateProveedorPersona,
   useCreateProveedorSociedad,
   usePersonas,
+  useProveedoresPersona,
+  useProveedoresSociedad,
   useTiposCliente,
 } from "@/features/personas/hooks";
-import type { Persona, TipoIdentificacion } from "@/features/personas/api";
+import type {
+  Persona,
+  TipoIdentificacion,
+  Cliente,
+  ProveedorPersona,
+  ProveedorSociedad,
+} from "@/features/personas/api";
 
 const initialForm = {
   identificacion: "",
@@ -29,6 +39,9 @@ const initialForm = {
 
 export default function PersonasPage() {
   const { data, isLoading, isError, refetch } = usePersonas();
+  const clientesQuery = useClientes();
+  const proveedoresPersonaQuery = useProveedoresPersona();
+  const proveedoresSociedadQuery = useProveedoresSociedad();
   const create = useCreatePersona();
   const createCliente = useCreateCliente();
   const createProveedor = useCreateProveedorPersona();
@@ -39,6 +52,7 @@ export default function PersonasPage() {
   const [selected, setSelected] = useState<Persona | null>(null);
   const [associationOpen, setAssociationOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState("personas");
   const [specialization, setSpecialization] = useState<"cliente" | "proveedor" | "sociedad">("cliente");
   const [tipoClienteId, setTipoClienteId] = useState("");
   const [tipoContribuyenteId, setTipoContribuyenteId] = useState("");
@@ -108,6 +122,29 @@ export default function PersonasPage() {
     },
   ];
 
+  const personaName = (id: string) => {
+    const persona = data?.items.find((item) => item.id === id);
+    return persona ? `${persona.nombre} ${persona.apellido}` : id;
+  };
+
+  const clienteColumns: Column<Cliente>[] = [
+    { key: "persona", header: "Persona", cell: (row) => personaName(row.persona_id) },
+    { key: "tipo", header: "Tipo de cliente", cell: (row) => row.tipo_cliente_id },
+  ];
+
+  const proveedorPersonaColumns: Column<ProveedorPersona>[] = [
+    { key: "persona", header: "Persona", cell: (row) => personaName(row.persona_id) },
+    { key: "nombre", header: "Nombre comercial", cell: (row) => row.nombre_comercial || "—" },
+    { key: "contribuyente", header: "Contribuyente", cell: (row) => row.tipo_contribuyente_id },
+  ];
+
+  const proveedorSociedadColumns: Column<ProveedorSociedad>[] = [
+    { key: "ruc", header: "RUC", cell: (row) => row.ruc },
+    { key: "razon", header: "Razón social", cell: (row) => row.razon_social },
+    { key: "email", header: "Email", cell: (row) => row.email },
+    { key: "contacto", header: "Contacto", cell: (row) => personaName(row.persona_contacto_id) },
+  ];
+
   return (
     <div>
       <PageHeader
@@ -118,16 +155,26 @@ export default function PersonasPage() {
       <div className="mb-4 max-w-sm">
         <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nombre o identificación" />
       </div>
-      <DataTable
-        columns={columns}
-        data={personas}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        isError={isError}
-        onRetry={refetch}
-        emptyHeading="No hay personas"
-        emptyDescription="Registra una Persona para asociarla después a un cliente o proveedor"
-      />
+      <Tabs value={view} onValueChange={setView} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="personas">Personas</TabsTrigger>
+          <TabsTrigger value="clientes">Clientes</TabsTrigger>
+          <TabsTrigger value="proveedores-persona">Proveedores Persona</TabsTrigger>
+          <TabsTrigger value="proveedores-sociedad">Proveedores Sociedad</TabsTrigger>
+        </TabsList>
+        <TabsContent value="personas">
+          <DataTable columns={columns} data={personas} rowKey={(row) => row.id} isLoading={isLoading} isError={isError} onRetry={refetch} emptyHeading="No hay personas" emptyDescription="Registra una Persona para asociarla después a un cliente o proveedor" />
+        </TabsContent>
+        <TabsContent value="clientes">
+          <DataTable columns={clienteColumns} data={clientesQuery.data ?? []} rowKey={(row) => row.id} isLoading={clientesQuery.isLoading} isError={clientesQuery.isError} onRetry={clientesQuery.refetch} emptyHeading="No hay clientes" emptyDescription="Asocia una Persona como cliente desde su detalle" />
+        </TabsContent>
+        <TabsContent value="proveedores-persona">
+          <DataTable columns={proveedorPersonaColumns} data={proveedoresPersonaQuery.data ?? []} rowKey={(row) => row.id} isLoading={proveedoresPersonaQuery.isLoading} isError={proveedoresPersonaQuery.isError} onRetry={proveedoresPersonaQuery.refetch} emptyHeading="No hay proveedores persona" emptyDescription="Asocia una Persona como proveedor persona desde su detalle" />
+        </TabsContent>
+        <TabsContent value="proveedores-sociedad">
+          <DataTable columns={proveedorSociedadColumns} data={proveedoresSociedadQuery.data ?? []} rowKey={(row) => row.id} isLoading={proveedoresSociedadQuery.isLoading} isError={proveedoresSociedadQuery.isError} onRetry={proveedoresSociedadQuery.refetch} emptyHeading="No hay proveedores sociedad" emptyDescription="Crea una sociedad desde el detalle de una Persona de contacto" />
+        </TabsContent>
+      </Tabs>
       {selected && (
         <DetailModal
           open={Boolean(selected)}

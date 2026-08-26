@@ -40,6 +40,34 @@ export interface TipoCliente {
   descuento: number;
 }
 
+export interface Cliente {
+  id: string;
+  persona_id: string;
+  tipo_cliente_id: string;
+  activo: boolean;
+}
+
+export interface ProveedorPersona {
+  id: string;
+  persona_id: string;
+  nombre_comercial: string | null;
+  tipo_contribuyente_id: string;
+  activo: boolean;
+}
+
+export interface ProveedorSociedad {
+  id: string;
+  ruc: string;
+  razon_social: string;
+  nombre_comercial: string | null;
+  direccion: string;
+  telefono: string | null;
+  email: string;
+  tipo_contribuyente_id: string;
+  persona_contacto_id: string;
+  activo: boolean;
+}
+
 export async function getPersonas(offset = 0, limit = 50) {
   const response = await api.get<PaginatedResponse<Persona>>("/personas", {
     params: { offset, limit, only_active: true },
@@ -56,6 +84,19 @@ export async function getTiposCliente() {
   const response = await api.get<{ items: TipoCliente[] }>("/tipos-cliente");
   return response.data.items;
 }
+
+async function getPaginated<T>(path: string) {
+  const response = await api.get<{ items: T[] }>(path, {
+    params: { limit: 1000, offset: 0, only_active: true },
+  });
+  return response.data.items;
+}
+
+export const getClientes = () => getPaginated<Cliente>("/clientes");
+export const getProveedoresPersona = () =>
+  getPaginated<ProveedorPersona>("/proveedores-persona");
+export const getProveedoresSociedad = () =>
+  getPaginated<ProveedorSociedad>("/proveedores-sociedad");
 
 export async function createCliente(personaId: string, tipoClienteId: string) {
   const response = await api.post("/clientes", {
