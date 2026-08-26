@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import api from "@/lib/api";
 import type { ProductoListado } from "@/features/productos/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCategorias, getImpuestosActivos, createProducto } from "@/features/productos/api";
+import { getAtributosDeCategoria, getCategorias, getImpuestosActivos, createProducto, saveValoresProducto } from "@/features/productos/api";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 
@@ -16,6 +16,7 @@ export default function ProductosPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN" as "BIEN" | "SERVICIO", pvp: "", categoria_id: "", impuesto_id: "" });
+  const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["productos"],
@@ -23,8 +24,11 @@ export default function ProductosPage() {
   });
   const categorias = useQuery({ queryKey: ["categorias-canonicas"], queryFn: getCategorias });
   const impuestos = useQuery({ queryKey: ["impuestos-canonicos"], queryFn: getImpuestosActivos });
+  const categoryAttributes = useQuery({ queryKey: ["categoria-atributos-producto", form.categoria_id], queryFn: () => getAtributosDeCategoria(form.categoria_id), enabled: Boolean(form.categoria_id) });
+  const atributos = useQuery({ queryKey: ["atributos-canonicos"], queryFn: async () => (await api.get<{ items: { id: string; nombre: string; tipo_dato: string }[] }>("/atributos", { params: { limit: 1000, offset: 0, only_active: true } })).data.items });
   const create = useMutation({
-    mutationFn: () => createProducto({
+    mutationFn: async () => {
+      const producto = await createProducto({
       nombre: form.nombre,
       descripcion: form.descripcion || undefined,
       codigo_barras: form.codigo_barras || undefined,
@@ -33,10 +37,15 @@ export default function ProductosPage() {
       categoria_ids: form.categoria_id ? [form.categoria_id] : undefined,
       impuesto_catalogo_ids: form.impuesto_id ? [form.impuesto_id] : [],
       usuario_auditoria: "frontend",
-    }),
+      });
+      const values = Object.entries(attributeValues).filter(([, value]) => value !== "").map(([atributo_id, valor]) => ({ atributo_id, valor }));
+      if (values.length) await saveValoresProducto(producto.id, values);
+      return producto;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
       setForm({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN", pvp: "", categoria_id: "", impuesto_id: "" });
+      setAttributeValues({});
       setOpen(false);
     },
   });
@@ -64,6 +73,11 @@ export default function ProductosPage() {
           <FormField label="Categoría"><select className="h-10 rounded-lg border border-input bg-white px-3 text-sm" value={form.categoria_id} onChange={(event) => setForm({ ...form, categoria_id: event.target.value })}><option value="">Sin categoría</option>{(categorias.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></FormField>
           <FormField label="Impuesto" required><select className="h-10 rounded-lg border border-input bg-white px-3 text-sm" value={form.impuesto_id} onChange={(event) => setForm({ ...form, impuesto_id: event.target.value })}><option value="">Selecciona un impuesto</option>{(impuestos.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.descripcion} ({item.codigo_sri})</option>)}</select></FormField>
           <FormField label="Descripción" className="sm:col-span-2"><Input value={form.descripcion} onChange={(event) => setForm({ ...form, descripcion: event.target.value })} /></FormField>
+          {categoryAttributes.data?.map((mapping) => {
+            const attribute = atributos.data?.find((item) => item.id === mapping.atributo_id);
+            if (!attribute) return null;
+            return <FormField key={mapping.atributo_id} label={`${attribute.nombre}${mapping.obligatorio ? " *" : ""}`} className="sm:col-span-2"><Input type={attribute.tipo_dato === "integer" || attribute.tipo_dato === "decimal" ? "number" : attribute.tipo_dato === "date" ? "date" : "text"} value={attributeValues[mapping.atributo_id] ?? mapping.valor_default ?? ""} onChange={(event) => setAttributeValues({ ...attributeValues, [mapping.atributo_id]: event.target.value })} /></FormField>;
+          })}
         </div>
       </DetailModal>
     </div>

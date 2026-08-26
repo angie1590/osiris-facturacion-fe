@@ -31,6 +31,13 @@ export interface ProductoCreateInput {
   usuario_auditoria: string;
 }
 
+export interface CategoriaAtributo {
+  atributo_id: string;
+  orden: number | null;
+  obligatorio: boolean | null;
+  valor_default: string | null;
+}
+
 interface ProductPage {
   items: ProductoListado[];
   meta: { total: number; limit: number; offset: number; page: number; page_count: number };
@@ -58,6 +65,17 @@ export async function getImpuestosActivos() {
 }
 
 export async function createProducto(input: ProductoCreateInput) {
-  const response = await api.post("/productos", input);
+  const response = await api.post<{ id: string }>("/productos", input);
   return response.data;
+}
+
+export async function getAtributosDeCategoria(categoriaId: string) {
+  const response = await api.get<CategoriaAtributo[]>("/categorias-atributos", {
+    params: { categoria_id: categoriaId, limit: 1000 },
+  });
+  return response.data;
+}
+
+export async function saveValoresProducto(productoId: string, values: { atributo_id: string; valor: unknown }[]) {
+  await api.put(`/productos/${productoId}/atributos`, values);
 }
