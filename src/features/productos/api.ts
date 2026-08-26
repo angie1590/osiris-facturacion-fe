@@ -31,6 +31,18 @@ export interface ProductoCreateInput {
   usuario_auditoria: string;
 }
 
+export interface ProductoAtributoValue {
+  atributo: { id?: string; nombre: string; tipo_dato?: string | null };
+  valor: string | number | boolean | null;
+}
+
+export interface ProductoDetalle extends ProductoCreateInput {
+  id: string;
+  cantidad: string;
+  permite_fracciones: boolean;
+  atributos: ProductoAtributoValue[];
+}
+
 export interface CategoriaAtributo {
   atributo_id: string;
   orden: number | null;
@@ -70,7 +82,7 @@ export async function createProducto(input: ProductoCreateInput) {
 }
 
 export async function getProducto(id: string) {
-  const response = await api.get<ProductoCreateInput & { id: string; cantidad: string }>(`/productos/${id}`);
+  const response = await api.get<ProductoDetalle>(`/productos/${id}`);
   return response.data;
 }
 
