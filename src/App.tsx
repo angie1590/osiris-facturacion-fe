@@ -30,10 +30,10 @@ export default function App() {
           <Routes>
             <Route element={<AuthLayout />}>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/change-password" element={<ChangePasswordPage />} />
             </Route>
 
             <Route element={<ProtectedRoute />}>
-              <Route path="/change-password" element={<ChangePasswordPage />} />
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/clientes" element={<ClientesPage />} />
