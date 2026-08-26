@@ -71,6 +71,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "catalogo",
   },
   {
+    to: "/impuestos",
+    label: "Impuestos SRI",
+    icon: ListChecks,
+    roles: ["admin", "supervisor"],
+    section: "catalogo",
+  },
+  {
     to: "/categorias-atributos",
     label: "Atributos por categoría",
     icon: ListChecks,
