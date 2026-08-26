@@ -52,6 +52,12 @@ export interface BodegaStock {
   cantidad: number;
 }
 
+export interface BodegaOption {
+  id: string;
+  codigo_bodega: string;
+  nombre_bodega: string;
+}
+
 export interface CategoriaAtributo {
   atributo_id: string;
   orden: number | null;
@@ -109,4 +115,17 @@ export async function getAtributosDeCategoria(categoriaId: string) {
 
 export async function saveValoresProducto(productoId: string, values: { atributo_id: string; valor: unknown }[]) {
   await api.put(`/productos/${productoId}/atributos`, values);
+}
+
+export async function getBodegas() {
+  const response = await api.get<BodegaOption[]>("/bodegas", { params: { limit: 200, skip: 0 } });
+  return response.data;
+}
+
+export async function saveProductoBodega(productoId: string, bodegaId: string, cantidad: number, exists: boolean) {
+  const method = exists ? "put" : "post";
+  await api[method](`/productos/${productoId}/bodegas/${bodegaId}`, {
+    cantidad,
+    usuario_auditoria: "frontend",
+  });
 }

@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/shared/DataTable";
 import api from "@/lib/api";
 import type { ProductoListado } from "@/features/productos/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAtributosDeCategoria, getCategorias, getImpuestosActivos, createProducto, getProducto, saveValoresProducto, updateProducto } from "@/features/productos/api";
+import { getAtributosDeCategoria, getBodegas, getCategorias, getImpuestosActivos, createProducto, getProducto, saveProductoBodega, saveValoresProducto, updateProducto } from "@/features/productos/api";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 
@@ -17,6 +17,9 @@ export default function ProductosPage() {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [warehouseOpen, setWarehouseOpen] = useState(false);
+  const [warehouseId, setWarehouseId] = useState("");
+  const [warehouseQuantity, setWarehouseQuantity] = useState("0");
   const [form, setForm] = useState({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN" as "BIEN" | "SERVICIO", pvp: "", categoria_id: "", impuesto_id: "" });
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
@@ -53,6 +56,8 @@ export default function ProductosPage() {
   });
   const update = useMutation({ mutationFn: () => updateProducto(editingId!, { nombre: form.nombre, descripcion: form.descripcion || undefined, codigo_barras: form.codigo_barras || undefined, tipo: form.tipo, pvp: Number(form.pvp) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["productos"] }); setOpen(false); setEditingId(null); } });
   const detail = useQuery({ queryKey: ["producto-canonico", selectedId], queryFn: () => getProducto(selectedId!), enabled: Boolean(selectedId) });
+  const warehouses = useQuery({ queryKey: ["bodegas-canonicas"], queryFn: getBodegas, enabled: warehouseOpen });
+  const saveWarehouse = useMutation({ mutationFn: () => saveProductoBodega(selectedId!, warehouseId, Number(warehouseQuantity), Boolean(detail.data?.bodegas.some((item) => item.bodega_id === warehouseId))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["producto-canonico", selectedId] }); setWarehouseOpen(false); } });
   const openEdit = async (id: string) => { const product = await getProducto(id); setEditingId(id); setForm({ nombre: product.nombre, descripcion: product.descripcion ?? "", codigo_barras: product.codigo_barras ?? "", tipo: product.tipo, pvp: String(product.pvp), categoria_id: "", impuesto_id: "" }); setOpen(true); };
   const productos = (data?.items ?? []).filter((producto) => producto.nombre.toLowerCase().includes(search.toLowerCase()));
   const columns: Column<ProductoListado>[] = [
@@ -70,7 +75,8 @@ export default function ProductosPage() {
         <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar producto" />
       </div>
       <DataTable columns={columns} data={productos} rowKey={(row) => row.id} isLoading={isLoading} isError={isError} onRetry={refetch} emptyHeading="No hay productos" emptyDescription="Los productos registrados aparecerán aquí." />
-      {detail.data && <DetailModal open={Boolean(selectedId)} onClose={() => setSelectedId(null)} title={detail.data.nombre} sections={[{ title: "Datos del producto", fields: [{ label: "Tipo", value: detail.data.tipo }, { label: "PVP", value: `$ ${Number(detail.data.pvp).toFixed(2)}` }, { label: "Existencia", value: detail.data.cantidad }, { label: "Código de barras", value: detail.data.codigo_barras || "—" }, { label: "Descripción", value: detail.data.descripcion || "—", full: true }] }, ...(detail.data.atributos.length ? [{ title: "Atributos", fields: detail.data.atributos.map((item) => ({ label: item.atributo.nombre, value: item.valor ?? "—" })) }] : []), ...(detail.data.bodegas.length ? [{ title: "Existencias por bodega", fields: detail.data.bodegas.map((item) => ({ label: `${item.codigo_bodega} · ${item.nombre_bodega}`, value: item.cantidad })) }] : [])]} />}
+      {detail.data && <DetailModal open={Boolean(selectedId)} onClose={() => setSelectedId(null)} title={detail.data.nombre} footer={<div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedId(null)}>Cerrar</Button><Button onClick={() => setWarehouseOpen(true)}>Gestionar bodegas</Button></div>} sections={[{ title: "Datos del producto", fields: [{ label: "Tipo", value: detail.data.tipo }, { label: "PVP", value: `$ ${Number(detail.data.pvp).toFixed(2)}` }, { label: "Existencia", value: detail.data.cantidad }, { label: "Código de barras", value: detail.data.codigo_barras || "—" }, { label: "Descripción", value: detail.data.descripcion || "—", full: true }] }, ...(detail.data.atributos.length ? [{ title: "Atributos", fields: detail.data.atributos.map((item) => ({ label: item.atributo.nombre, value: item.valor ?? "—" })) }] : []), ...(detail.data.bodegas.length ? [{ title: "Existencias por bodega", fields: detail.data.bodegas.map((item) => ({ label: `${item.codigo_bodega} · ${item.nombre_bodega}`, value: item.cantidad })) }] : [])]} />}
+      {detail.data && <DetailModal open={warehouseOpen} onClose={() => setWarehouseOpen(false)} title={`Bodegas de ${detail.data.nombre}`} subtitle="Asigna el producto a una bodega o actualiza su existencia." footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setWarehouseOpen(false)}>Cancelar</Button><Button onClick={() => saveWarehouse.mutate()} disabled={saveWarehouse.isPending || !warehouseId || Number(warehouseQuantity) < 0}>{saveWarehouse.isPending ? "Guardando..." : "Guardar"}</Button></div>}><div className="space-y-4"><FormField label="Bodega" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={warehouseId} onChange={(event) => { const id = event.target.value; setWarehouseId(id); const current = detail.data?.bodegas.find((item) => item.bodega_id === id); setWarehouseQuantity(String(current?.cantidad ?? 0)); }}><option value="">Selecciona una bodega</option>{(warehouses.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.codigo_bodega} · {item.nombre_bodega}</option>)}</select></FormField><FormField label="Cantidad" required><Input type="number" min="0" step="0.01" value={warehouseQuantity} onChange={(event) => setWarehouseQuantity(event.target.value)} /></FormField></div></DetailModal>}
       <DetailModal open={open} onClose={() => { setOpen(false); setEditingId(null); }} title={editingId ? "Editar producto" : "Nuevo producto"} subtitle={editingId ? "Actualiza los datos básicos del producto." : "Completa los datos del producto y selecciona al menos un impuesto."} footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={() => editingId ? update.mutate() : create.mutate()} disabled={create.isPending || update.isPending || !form.nombre || !form.pvp || (!editingId && !form.impuesto_id)}>{create.isPending || update.isPending ? "Guardando..." : "Guardar"}</Button></div>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Nombre" required><Input value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} /></FormField>
