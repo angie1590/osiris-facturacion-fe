@@ -6,7 +6,13 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
-import { useCreatePersona, usePersonas } from "@/features/personas/hooks";
+import {
+  useCreateCliente,
+  useCreatePersona,
+  useCreateProveedorPersona,
+  usePersonas,
+  useTiposCliente,
+} from "@/features/personas/hooks";
 import type { Persona, TipoIdentificacion } from "@/features/personas/api";
 
 const initialForm = {
@@ -23,10 +29,18 @@ const initialForm = {
 export default function PersonasPage() {
   const { data, isLoading, isError, refetch } = usePersonas();
   const create = useCreatePersona();
+  const createCliente = useCreateCliente();
+  const createProveedor = useCreateProveedorPersona();
+  const { data: tiposCliente = [] } = useTiposCliente();
   const [form, setForm] = useState(initialForm);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Persona | null>(null);
+  const [associationOpen, setAssociationOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [specialization, setSpecialization] = useState<"cliente" | "proveedor">("cliente");
+  const [tipoClienteId, setTipoClienteId] = useState("");
+  const [tipoContribuyenteId, setTipoContribuyenteId] = useState("");
+  const [nombreComercial, setNombreComercial] = useState("");
 
   const personas = (data?.items ?? []).filter((persona) =>
     `${persona.nombre} ${persona.apellido} ${persona.identificacion}`
@@ -49,6 +63,26 @@ export default function PersonasPage() {
     });
     setForm(initialForm);
     setOpen(false);
+  };
+
+  const handleSpecialize = async () => {
+    if (!selected) return;
+    if (specialization === "cliente" && tipoClienteId) {
+      await createCliente.mutateAsync({ personaId: selected.id, tipoClienteId });
+    } else if (specialization === "proveedor" && tipoContribuyenteId) {
+      await createProveedor.mutateAsync({
+        personaId: selected.id,
+        tipoContribuyenteId,
+        nombreComercial,
+      });
+    } else {
+      return;
+    }
+    setTipoClienteId("");
+    setTipoContribuyenteId("");
+    setNombreComercial("");
+    setAssociationOpen(false);
+    setSelected(null);
   };
 
   const columns: Column<Persona>[] = [
@@ -88,6 +122,11 @@ export default function PersonasPage() {
           open={Boolean(selected)}
           onClose={() => setSelected(null)}
           title={`${selected.nombre} ${selected.apellido}`}
+          footer={<div className="flex flex-wrap justify-end gap-2">
+            <Button variant="outline" onClick={() => setSelected(null)}>Cerrar</Button>
+            <Button onClick={() => { setSpecialization("cliente"); setAssociationOpen(true); }}>Asociar como Cliente</Button>
+            <Button variant="outline" onClick={() => { setSpecialization("proveedor"); setAssociationOpen(true); }}>Asociar como Proveedor</Button>
+          </div>}
           sections={[{ fields: [
             { label: "Identificación", value: selected.identificacion },
             { label: "Tipo", value: selected.tipo_identificacion },
@@ -96,6 +135,29 @@ export default function PersonasPage() {
             { label: "Dirección", value: selected.direccion || "—", full: true },
           ] }]}
         />
+      )}
+      {selected && (
+        <DetailModal
+          open={associationOpen}
+          onClose={() => setAssociationOpen(false)}
+          title={`Asociar ${specialization === "cliente" ? "Cliente" : "Proveedor Persona"}`}
+          subtitle="La Persona ya existe. Completa únicamente los datos propios de la especialización."
+          footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setAssociationOpen(false)}>Cancelar</Button><Button onClick={handleSpecialize} disabled={createCliente.isPending || createProveedor.isPending}>{createCliente.isPending || createProveedor.isPending ? "Guardando..." : "Guardar asociación"}</Button></div>}
+        >
+          {specialization === "cliente" ? (
+            <FormField label="Tipo de cliente" required>
+              <select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={tipoClienteId} onChange={(event) => setTipoClienteId(event.target.value)}>
+                <option value="">Selecciona un tipo</option>
+                {tiposCliente.map((tipo) => <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>)}
+              </select>
+            </FormField>
+          ) : (
+            <div className="space-y-4">
+              <FormField label="Tipo de contribuyente" required><Input value={tipoContribuyenteId} onChange={(event) => setTipoContribuyenteId(event.target.value)} placeholder="Código del catálogo SRI" maxLength={2} /></FormField>
+              <FormField label="Nombre comercial"><Input value={nombreComercial} onChange={(event) => setNombreComercial(event.target.value)} /></FormField>
+            </div>
+          )}
+        </DetailModal>
       )}
       <DetailModal
         open={open}

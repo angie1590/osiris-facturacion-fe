@@ -34,6 +34,12 @@ export interface PersonaCreateInput {
   usuario_auditoria: string;
 }
 
+export interface TipoCliente {
+  id: string;
+  nombre: string;
+  descuento: number;
+}
+
 export async function getPersonas(offset = 0, limit = 50) {
   const response = await api.get<PaginatedResponse<Persona>>("/personas", {
     params: { offset, limit, only_active: true },
@@ -43,5 +49,31 @@ export async function getPersonas(offset = 0, limit = 50) {
 
 export async function createPersona(input: PersonaCreateInput) {
   const response = await api.post<Persona>("/personas", input);
+  return response.data;
+}
+
+export async function getTiposCliente() {
+  const response = await api.get<{ items: TipoCliente[] }>("/tipos-cliente");
+  return response.data.items;
+}
+
+export async function createCliente(personaId: string, tipoClienteId: string) {
+  const response = await api.post("/clientes", {
+    persona_id: personaId,
+    tipo_cliente_id: tipoClienteId,
+  });
+  return response.data;
+}
+
+export async function createProveedorPersona(
+  personaId: string,
+  tipoContribuyenteId: string,
+  nombreComercial?: string,
+) {
+  const response = await api.post("/proveedores-persona", {
+    persona_id: personaId,
+    tipo_contribuyente_id: tipoContribuyenteId,
+    nombre_comercial: nombreComercial || undefined,
+  });
   return response.data;
 }
