@@ -77,3 +77,20 @@ export async function createProveedorPersona(
   });
   return response.data;
 }
+
+export interface ProveedorSociedadInput {
+  ruc: string;
+  razon_social: string;
+  nombre_comercial?: string;
+  direccion: string;
+  telefono: string;
+  email: string;
+  tipo_contribuyente_id: string;
+  persona_contacto_id: string;
+  usuario_auditoria: string;
+}
+
+export async function createProveedorSociedad(input: ProveedorSociedadInput) {
+  const response = await api.post("/proveedores-sociedad", input);
+  return response.data;
+}

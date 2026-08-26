@@ -10,6 +10,7 @@ import {
   useCreateCliente,
   useCreatePersona,
   useCreateProveedorPersona,
+  useCreateProveedorSociedad,
   usePersonas,
   useTiposCliente,
 } from "@/features/personas/hooks";
@@ -31,16 +32,18 @@ export default function PersonasPage() {
   const create = useCreatePersona();
   const createCliente = useCreateCliente();
   const createProveedor = useCreateProveedorPersona();
+  const createSociedad = useCreateProveedorSociedad();
   const { data: tiposCliente = [] } = useTiposCliente();
   const [form, setForm] = useState(initialForm);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Persona | null>(null);
   const [associationOpen, setAssociationOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [specialization, setSpecialization] = useState<"cliente" | "proveedor">("cliente");
+  const [specialization, setSpecialization] = useState<"cliente" | "proveedor" | "sociedad">("cliente");
   const [tipoClienteId, setTipoClienteId] = useState("");
   const [tipoContribuyenteId, setTipoContribuyenteId] = useState("");
   const [nombreComercial, setNombreComercial] = useState("");
+  const [sociedad, setSociedad] = useState({ ruc: "", razon_social: "", nombre_comercial: "", direccion: "", telefono: "", email: "", tipo_contribuyente_id: "" });
 
   const personas = (data?.items ?? []).filter((persona) =>
     `${persona.nombre} ${persona.apellido} ${persona.identificacion}`
@@ -75,12 +78,20 @@ export default function PersonasPage() {
         tipoContribuyenteId,
         nombreComercial,
       });
+    } else if (specialization === "sociedad" && sociedad.ruc && sociedad.razon_social && sociedad.direccion && sociedad.telefono && sociedad.email && sociedad.tipo_contribuyente_id) {
+      await createSociedad.mutateAsync({
+        ...sociedad,
+        nombre_comercial: sociedad.nombre_comercial || undefined,
+        persona_contacto_id: selected.id,
+        usuario_auditoria: "frontend",
+      });
     } else {
       return;
     }
     setTipoClienteId("");
     setTipoContribuyenteId("");
     setNombreComercial("");
+    setSociedad({ ruc: "", razon_social: "", nombre_comercial: "", direccion: "", telefono: "", email: "", tipo_contribuyente_id: "" });
     setAssociationOpen(false);
     setSelected(null);
   };
@@ -126,6 +137,7 @@ export default function PersonasPage() {
             <Button variant="outline" onClick={() => setSelected(null)}>Cerrar</Button>
             <Button onClick={() => { setSpecialization("cliente"); setAssociationOpen(true); }}>Asociar como Cliente</Button>
             <Button variant="outline" onClick={() => { setSpecialization("proveedor"); setAssociationOpen(true); }}>Asociar como Proveedor</Button>
+            <Button variant="outline" onClick={() => { setSpecialization("sociedad"); setAssociationOpen(true); }}>Proveedor Sociedad</Button>
           </div>}
           sections={[{ fields: [
             { label: "Identificación", value: selected.identificacion },
@@ -140,9 +152,9 @@ export default function PersonasPage() {
         <DetailModal
           open={associationOpen}
           onClose={() => setAssociationOpen(false)}
-          title={`Asociar ${specialization === "cliente" ? "Cliente" : "Proveedor Persona"}`}
+          title={`Asociar ${specialization === "cliente" ? "Cliente" : specialization === "proveedor" ? "Proveedor Persona" : "Proveedor Sociedad"}`}
           subtitle="La Persona ya existe. Completa únicamente los datos propios de la especialización."
-          footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setAssociationOpen(false)}>Cancelar</Button><Button onClick={handleSpecialize} disabled={createCliente.isPending || createProveedor.isPending}>{createCliente.isPending || createProveedor.isPending ? "Guardando..." : "Guardar asociación"}</Button></div>}
+          footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setAssociationOpen(false)}>Cancelar</Button><Button onClick={handleSpecialize} disabled={createCliente.isPending || createProveedor.isPending || createSociedad.isPending}>{createCliente.isPending || createProveedor.isPending || createSociedad.isPending ? "Guardando..." : "Guardar asociación"}</Button></div>}
         >
           {specialization === "cliente" ? (
             <FormField label="Tipo de cliente" required>
@@ -151,10 +163,20 @@ export default function PersonasPage() {
                 {tiposCliente.map((tipo) => <option key={tipo.id} value={tipo.id}>{tipo.nombre}</option>)}
               </select>
             </FormField>
-          ) : (
+          ) : specialization === "proveedor" ? (
             <div className="space-y-4">
               <FormField label="Tipo de contribuyente" required><Input value={tipoContribuyenteId} onChange={(event) => setTipoContribuyenteId(event.target.value)} placeholder="Código del catálogo SRI" maxLength={2} /></FormField>
               <FormField label="Nombre comercial"><Input value={nombreComercial} onChange={(event) => setNombreComercial(event.target.value)} /></FormField>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField label="RUC" required><Input value={sociedad.ruc} onChange={(event) => setSociedad({ ...sociedad, ruc: event.target.value })} maxLength={13} /></FormField>
+              <FormField label="Razón social" required><Input value={sociedad.razon_social} onChange={(event) => setSociedad({ ...sociedad, razon_social: event.target.value })} /></FormField>
+              <FormField label="Nombre comercial"><Input value={sociedad.nombre_comercial} onChange={(event) => setSociedad({ ...sociedad, nombre_comercial: event.target.value })} /></FormField>
+              <FormField label="Tipo de contribuyente" required><Input value={sociedad.tipo_contribuyente_id} onChange={(event) => setSociedad({ ...sociedad, tipo_contribuyente_id: event.target.value })} maxLength={2} /></FormField>
+              <FormField label="Dirección" required><Input value={sociedad.direccion} onChange={(event) => setSociedad({ ...sociedad, direccion: event.target.value })} /></FormField>
+              <FormField label="Teléfono" required><Input value={sociedad.telefono} onChange={(event) => setSociedad({ ...sociedad, telefono: event.target.value })} /></FormField>
+              <FormField label="Email" required><Input type="email" value={sociedad.email} onChange={(event) => setSociedad({ ...sociedad, email: event.target.value })} /></FormField>
             </div>
           )}
         </DetailModal>

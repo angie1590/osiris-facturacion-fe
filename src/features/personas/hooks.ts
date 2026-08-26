@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createCliente,
   createProveedorPersona,
+  createProveedorSociedad,
   createPersona,
   getPersonas,
   getTiposCliente,
   type PersonaCreateInput,
+  type ProveedorSociedadInput,
 } from "@/features/personas/api";
 
 export function usePersonas() {
@@ -45,5 +47,13 @@ export function useCreateProveedorPersona() {
     mutationFn: ({ personaId, tipoContribuyenteId, nombreComercial }: { personaId: string; tipoContribuyenteId: string; nombreComercial?: string }) =>
       createProveedorPersona(personaId, tipoContribuyenteId, nombreComercial),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proveedores-persona"] }),
+  });
+}
+
+export function useCreateProveedorSociedad() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ProveedorSociedadInput) => createProveedorSociedad(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["proveedores-sociedad"] }),
   });
 }
