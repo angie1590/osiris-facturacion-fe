@@ -69,6 +69,16 @@ export async function createProducto(input: ProductoCreateInput) {
   return response.data;
 }
 
+export async function getProducto(id: string) {
+  const response = await api.get<ProductoCreateInput & { id: string; cantidad: string }>(`/productos/${id}`);
+  return response.data;
+}
+
+export async function updateProducto(id: string, input: Partial<ProductoCreateInput>) {
+  const response = await api.put(`/productos/${id}`, { ...input, usuario_auditoria: "frontend" });
+  return response.data;
+}
+
 export async function getAtributosDeCategoria(categoriaId: string) {
   const response = await api.get<CategoriaAtributo[]>("/categorias-atributos", {
     params: { categoria_id: categoriaId, limit: 1000 },
