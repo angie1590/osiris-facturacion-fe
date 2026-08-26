@@ -2,22 +2,29 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
-  Building2,
-  Contact,
-  FileText,
-  ShoppingCart,
+  Tags,
+  Package,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  BookOpen,
+  ClipboardCheck,
   BarChart3,
+  ClipboardList,
   Users,
   Settings,
+  Building2,
   ChevronLeft,
   ChevronRight,
+  ListChecks,
+  Truck,
+  Contact,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/types/api";
 
-type Section = "principal" | "maestros" | "documentos" | "analisis" | "admin";
+type Section = "principal" | "catalogo" | "movimientos" | "analisis" | "admin";
 
 interface NavItem {
   to: string;
@@ -36,30 +43,79 @@ export const NAV_ITEMS: NavItem[] = [
     section: "principal",
   },
   {
-    to: "/personas",
-    label: "Personas",
+    to: "/products",
+    label: "Productos",
+    icon: Package,
+    roles: ["admin", "operator", "supervisor"],
+    section: "catalogo",
+  },
+  {
+    to: "/categories",
+    label: "Categorías",
+    icon: Tags,
+    roles: ["admin", "supervisor"],
+    section: "catalogo",
+  },
+  {
+    to: "/catalogs",
+    label: "Catálogos",
+    icon: ListChecks,
+    roles: ["admin", "supervisor"],
+    section: "catalogo",
+  },
+  {
+    to: "/suppliers",
+    label: "Proveedores",
+    icon: Truck,
+    roles: ["admin", "operator", "supervisor"],
+    section: "catalogo",
+  },
+  {
+    to: "/customers",
+    label: "Clientes",
     icon: Contact,
     roles: ["admin", "operator", "supervisor"],
-    section: "maestros",
+    section: "catalogo",
   },
   {
-    to: "/ventas/facturas",
-    label: "Facturas",
-    icon: FileText,
-    roles: ["admin", "operator", "supervisor"],
-    section: "documentos",
-  },
-  {
-    to: "/compras",
-    label: "Compras",
-    icon: ShoppingCart,
+    to: "/inventory/ingresos",
+    label: "Ingresos",
+    icon: ArrowDownToLine,
     roles: ["admin", "supervisor"],
-    section: "documentos",
+    section: "movimientos",
+  },
+  {
+    to: "/inventory/egresos",
+    label: "Egresos",
+    icon: ArrowUpFromLine,
+    roles: ["admin", "operator", "supervisor"],
+    section: "movimientos",
+  },
+  {
+    to: "/inventory/conteos",
+    label: "Conteo",
+    icon: ClipboardCheck,
+    roles: ["admin", "operator", "supervisor"],
+    section: "movimientos",
+  },
+  {
+    to: "/kardex",
+    label: "Kardex",
+    icon: BookOpen,
+    roles: ["admin", "supervisor"],
+    section: "analisis",
   },
   {
     to: "/reports",
     label: "Reportes",
     icon: BarChart3,
+    roles: ["admin", "supervisor"],
+    section: "analisis",
+  },
+  {
+    to: "/audit",
+    label: "Auditoría",
+    icon: ClipboardList,
     roles: ["admin", "supervisor"],
     section: "analisis",
   },
@@ -71,25 +127,25 @@ export const NAV_ITEMS: NavItem[] = [
     section: "admin",
   },
   {
-    to: "/admin/empresas",
-    label: "Empresa",
-    icon: Building2,
-    roles: ["admin", "supervisor"],
-    section: "admin",
-  },
-  {
     to: "/admin/params",
     label: "Parámetros",
     icon: Settings,
     roles: ["admin"],
     section: "admin",
   },
+  {
+    to: "/admin/company",
+    label: "Empresa",
+    icon: Building2,
+    roles: ["admin", "supervisor"],
+    section: "admin",
+  },
 ];
 
 const SECTION_LABELS: Record<Section, string> = {
   principal: "Principal",
-  maestros: "Maestros",
-  documentos: "Documentos",
+  catalogo: "Catálogo",
+  movimientos: "Movimientos",
   analisis: "Análisis",
   admin: "Administración",
 };
@@ -119,8 +175,8 @@ export function Sidebar({
   );
   const sections: Section[] = [
     "principal",
-    "maestros",
-    "documentos",
+    "catalogo",
+    "movimientos",
     "analisis",
     "admin",
   ];
@@ -145,7 +201,7 @@ export function Sidebar({
               OSIRIS
             </p>
             <p className="truncate text-sm font-semibold text-white">
-              Facturación
+              Inventario
             </p>
           </div>
         )}

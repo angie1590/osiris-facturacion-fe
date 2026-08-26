@@ -1,10 +1,9 @@
-import type { IdentificationType } from "@/types/api";
+import type { SupplierIdentificationType } from "@/types/api";
 
-export const ID_TYPE_LABEL: Record<IdentificationType, string> = {
+export const ID_TYPE_LABEL: Record<SupplierIdentificationType, string> = {
   ruc: "RUC",
   cedula: "CÉDULA",
-  pasaporte: "PASAPORTE",
-  consumidor_final: "CONSUMIDOR FINAL",
+  passport: "PASAPORTE",
 };
 
 export function isValidEcuadorRuc(value: string) {
@@ -74,7 +73,7 @@ export function isValidEcuadorCedula(value: string) {
 
 /** Devuelve el mensaje de error o null si la identificación es válida. */
 export function getIdentificationError(
-  type: IdentificationType,
+  type: SupplierIdentificationType,
   value: string,
 ): string | null {
   if (type === "ruc") {
@@ -88,15 +87,15 @@ export function getIdentificationError(
   return value.trim() ? null : "Pasaporte requerido";
 }
 
-export function identificationMaxLength(type: IdentificationType) {
-  if (type === "pasaporte") return 20;
+export function identificationMaxLength(type: SupplierIdentificationType) {
+  if (type === "passport") return 20;
   return type === "cedula" ? 10 : 13;
 }
 
 export function normalizeIdentificationInput(
-  type: IdentificationType,
+  type: SupplierIdentificationType,
   value: string,
 ) {
-  if (type === "pasaporte") return value.toUpperCase().slice(0, 20);
+  if (type === "passport") return value.toUpperCase().slice(0, 20);
   return value.replace(/\D/g, "").slice(0, identificationMaxLength(type));
 }

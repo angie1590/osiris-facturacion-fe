@@ -5,7 +5,11 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import api, { setAccessToken, getAccessToken } from "@/lib/api";
+import api, {
+  setAccessToken,
+  getAccessToken,
+  setSessionTimeoutMinutes,
+} from "@/lib/api";
 import type { CurrentUser, LoginResponse } from "@/types/api";
 
 interface AuthContextValue {
@@ -44,12 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .post<LoginResponse>("/auth/refresh", { refresh_token: token })
       .then((resp) => {
         setAccessToken(resp.data.access_token);
+        setSessionTimeoutMinutes(resp.data.session_timeout_minutes);
         localStorage.setItem("refresh_token", resp.data.refresh_token);
         return fetchMe();
       })
       .catch(() => {
         localStorage.removeItem("refresh_token");
         setAccessToken(null);
+        setSessionTimeoutMinutes(null);
         setUser(null);
       })
       .finally(() => setIsLoading(false));
@@ -60,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handler = () => {
       setUser(null);
       setAccessToken(null);
+      setSessionTimeoutMinutes(null);
     };
     window.addEventListener("session-expired", handler);
     return () => window.removeEventListener("session-expired", handler);
@@ -74,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
       setAccessToken(resp.data.access_token);
+      setSessionTimeoutMinutes(resp.data.session_timeout_minutes);
       localStorage.setItem("refresh_token", resp.data.refresh_token);
       await fetchMe();
       return resp.data;
@@ -88,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* ignore */
     }
     setAccessToken(null);
+    setSessionTimeoutMinutes(null);
     localStorage.removeItem("refresh_token");
     setUser(null);
   }, []);
@@ -99,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refresh_token: token,
     });
     setAccessToken(resp.data.access_token);
+    setSessionTimeoutMinutes(resp.data.session_timeout_minutes);
     localStorage.setItem("refresh_token", resp.data.refresh_token);
   }, []);
 

@@ -1,9 +1,113 @@
+// Enums matching backend
 export type UserRole = "admin" | "operator" | "supervisor";
+export type ProductStatus = "active" | "inactive";
+export type AttributeDataType =
+  | "text"
+  | "integer"
+  | "decimal"
+  | "date"
+  | "boolean"
+  | "select"
+  | "catalog";
 
-export interface EmpresaAcceso {
-  empresa_id: number;
-  razon_social: string;
-  role: UserRole;
+export interface Catalog {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  value_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CatalogValue {
+  id: number;
+  catalog_id: number;
+  value: string;
+  is_active: boolean;
+}
+export type DocumentType = "IN" | "EG" | "BI" | "AI";
+export type DocumentStatus = "pending" | "approved" | "cancelled" | "voided";
+export type AdjustType = "increment" | "decrement";
+export type KardexEntryType = "IN" | "OUT" | "ADJUST";
+export type SupplierIdentificationType = "ruc" | "cedula" | "passport";
+export const PURCHASE_DOCUMENT_TYPES = [
+  "invoice",
+  "sales_note",
+  "liquidation_purchase",
+  "receipt",
+  "other",
+  "inventory_act",
+  "adjustment_act",
+  "credit_note",
+  "production_act",
+  "transfer_note",
+  "delivery_note",
+  "disposal_act",
+  "donation_act",
+  "internal_consumption_act",
+  "supplier_return",
+  "transfer_act",
+  "none",
+] as const;
+export type PurchaseDocumentType = (typeof PURCHASE_DOCUMENT_TYPES)[number];
+export type IngresoType =
+  | "purchase"
+  | "initial_inventory"
+  | "adjustment_positive"
+  | "customer_return"
+  | "production"
+  | "transfer_received"
+  | "other";
+export type EgresoType =
+  | "sale"
+  | "baja"
+  | "adjustment_negative"
+  | "supplier_return"
+  | "internal_consumption"
+  | "transfer_sent"
+  | "other";
+export type BajaReason =
+  | "damage"
+  | "expiration"
+  | "loss"
+  | "theft"
+  | "donation"
+  | "gift"
+  | "destruction"
+  | "sample"
+  | "other";
+export type AdjustmentReason =
+  | "physical_count"
+  | "record_error"
+  | "administrative_correction"
+  | "other";
+export type CountStatus = "draft" | "applied" | "cancelled";
+export type AuditAction =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "APPROVE"
+  | "REJECT"
+  | "CANCEL"
+  | "LOGIN"
+  | "LOGIN_FAILED"
+  | "LOGOUT"
+  | "SESSION_EXPIRED"
+  | "PASSWORD_CHANGED";
+
+export interface SystemHealth {
+  status: "ok";
+  server_ip: string;
+}
+
+// Auth
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  require_password_change: boolean;
+  session_timeout_minutes: number;
 }
 
 export interface CurrentUser {
@@ -13,56 +117,668 @@ export interface CurrentUser {
   role: UserRole;
   is_active: boolean;
   require_password_change: boolean;
-  empresas: EmpresaAcceso[];
-}
-
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
-  require_password_change: boolean;
-}
-
-export type IdentificationType = "ruc" | "cedula" | "pasaporte" | "consumidor_final";
-
-export interface Empresa {
-  id: number;
-  ruc: string;
-  razon_social: string;
-  nombre_comercial: string | null;
-  identification_type: IdentificationType;
-  obligado_contabilidad: boolean;
-  is_active: boolean;
-}
-
-export interface Sucursal {
-  id: number;
-  empresa_id: number;
-  codigo_establecimiento: string;
-  nombre: string;
-  direccion: string | null;
-  is_active: boolean;
-}
-
-export interface PuntoEmision {
-  id: number;
-  sucursal_id: number;
-  codigo_punto_emision: string;
-  descripcion: string | null;
-  is_active: boolean;
-}
-
-export interface Persona {
-  id: number;
-  empresa_id: number;
-  tipo: "cliente" | "proveedor";
-  identificacion_tipo: IdentificationType;
-  identificacion: string;
-  razon_social: string;
-  nombre_comercial: string | null;
-  email: string | null;
-  telefono: string | null;
-  direccion: string | null;
-  is_active: boolean;
+  has_approval_code?: boolean;
   created_at: string;
+}
+
+// Users
+export interface User {
+  id: number;
+  username: string;
+  full_name: string;
+  role: UserRole;
+  is_active: boolean;
+  require_password_change: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateUserPayload {
+  username: string;
+  full_name: string;
+  role: UserRole;
+  is_active?: boolean;
+}
+
+export interface UpdateUserPayload {
+  full_name?: string;
+  role?: UserRole;
+  is_active?: boolean;
+  require_password_change?: boolean;
+}
+
+// Categories
+export interface CategoryAttribute {
+  id: number;
+  category_id: number;
+  name: string;
+  data_type: AttributeDataType;
+  is_required: boolean;
+  is_active: boolean;
+  select_options: string[] | null;
+  catalog_id?: number | null;
+  allow_negative?: boolean;
+  inherited?: boolean;
+  created_at: string;
+}
+
+export interface UpdateAttributePayload {
+  name?: string;
+  data_type?: AttributeDataType;
+  is_required?: boolean;
+  select_options?: string[];
+  catalog_id?: number | null;
+  allow_negative?: boolean;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  description: string | null;
+  parent_id: number | null;
+  is_active: boolean;
+  is_default?: boolean;
+  created_at: string;
+  updated_at: string;
+  attributes?: CategoryAttribute[];
+}
+
+export interface CreateCategoryPayload {
+  name: string;
+  description?: string;
+  parent_id?: number | null;
+  reset_custom_attributes?: boolean;
+}
+
+export interface CreateAttributePayload {
+  name: string;
+  data_type: AttributeDataType;
+  is_required?: boolean;
+  select_options?: string[];
+  catalog_id?: number | null;
+  allow_negative?: boolean;
+}
+
+// Products
+export interface ProductImage {
+  url: string;
+  is_cover: boolean;
+}
+
+export interface Product {
+  id: number;
+  isbn: string;
+  codigo_interno: string | null;
+  name: string;
+  description: string | null;
+  photo: string | null;
+  photos: ProductImage[] | null;
+  category_id: number;
+  stock_minimo: number;
+  stock_actual: number;
+  pvp: number;
+  status: ProductStatus;
+  custom_attributes: Record<string, unknown>;
+  bajo_stock: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductPage {
+  items: Product[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface PageResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface CreateProductPayload {
+  isbn?: string;
+  codigo_interno?: string | null;
+  name: string;
+  description?: string;
+  photo?: string | null;
+  photos?: ProductImage[];
+  category_id: number;
+  stock_minimo?: number;
+  pvp: string | number;
+  custom_attributes?: Record<string, unknown>;
+}
+
+export interface UpdateProductPayload {
+  isbn?: string;
+  codigo_interno?: string | null;
+  name?: string;
+  description?: string;
+  photo?: string | null;
+  photos?: ProductImage[];
+  category_id?: number;
+  stock_minimo?: number;
+  pvp?: string | number;
+  custom_attributes?: Record<string, unknown>;
+}
+
+// Inventory documents
+export interface InventoryDocumentLine {
+  id: number;
+  document_id: number;
+  product_id: number;
+  product_name?: string | null;
+  product_isbn?: string | null;
+  quantity: number;
+  unit_cost: number | null;
+  unit_price: number | null;
+  unit_price_base?: number | null;
+  discount_type?: "percent" | "fixed" | null;
+  discount_value?: number | null;
+  return_condition?: "available" | "damaged" | "requires_review" | null;
+  created_at: string;
+}
+
+export type AdjustmentIncrementCostMode =
+  | "auto"
+  | "suggested"
+  | "required_manual";
+
+export interface AdjustmentIncrementCostPreview {
+  product_id: number;
+  mode: AdjustmentIncrementCostMode;
+  unit_cost: number | null;
+}
+
+export interface InventorySupplier {
+  id: number;
+  identification_type: SupplierIdentificationType;
+  identification_number: string;
+  trade_name: string;
+  legal_name: string;
+  address: string | null;
+  phone: string | null;
+  is_active: boolean;
+}
+
+export interface CreateSupplierPayload {
+  identification_type: SupplierIdentificationType;
+  identification_number: string;
+  trade_name: string;
+  legal_name: string;
+  address?: string | null;
+  phone?: string | null;
+}
+
+export interface UpdateSupplierPayload {
+  identification_type?: SupplierIdentificationType;
+  identification_number?: string;
+  trade_name?: string;
+  legal_name?: string;
+  address?: string | null;
+  phone?: string | null;
+  is_active?: boolean;
+}
+
+export interface InventoryCustomer {
+  id: number;
+  identification_type: SupplierIdentificationType;
+  identification_number: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  is_active: boolean;
+}
+
+export interface CreateCustomerPayload {
+  identification_type: SupplierIdentificationType;
+  identification_number: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+}
+
+export interface UpdateCustomerPayload {
+  identification_type?: SupplierIdentificationType;
+  identification_number?: string;
+  name?: string;
+  address?: string | null;
+  phone?: string | null;
+  is_active?: boolean;
+}
+
+export interface InventoryDocumentAttachment {
+  id: number;
+  original_name: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+}
+
+export interface InventoryDocument {
+  id: number;
+  number: string;
+  doc_type: DocumentType;
+  status: DocumentStatus;
+  adjust_type: AdjustType | null;
+  ingreso_type?: IngresoType | null;
+  egreso_type?: EgresoType | null;
+  baja_reason?: BajaReason | null;
+  adjustment_reason?: AdjustmentReason | null;
+  supplier_id?: number | null;
+  customer_id?: number | null;
+  purchase_document_type?: PurchaseDocumentType | null;
+  purchase_document_number?: string | null;
+  seller_name?: string | null;
+  payment_method?: string | null;
+  bank_name?: string | null;
+  amount_received?: number | null;
+  change_amount?: number | null;
+  purchase_document_date?: string | null;
+  reference: string | null;
+  notes: string | null;
+  exchange_original_document_id?: number | null;
+  exchange_original_document_number?: string | null;
+  exchange_return_document_id?: number | null;
+  exchange_return_document_number?: string | null;
+  exchange_new_sale_document_id?: number | null;
+  exchange_new_sale_document_number?: string | null;
+  created_by: number;
+  authorized_by: number | null;
+  requested_at: string | null;
+  authorized_at: string | null;
+  created_at: string;
+  supplier?: InventorySupplier | null;
+  customer?: InventoryCustomer | null;
+  attachments?: InventoryDocumentAttachment[];
+  lines: InventoryDocumentLine[];
+}
+
+export interface CreateIngresoPayload {
+  ingreso_type?: IngresoType;
+  supplier_id?: number;
+  purchase_document_type?: PurchaseDocumentType;
+  purchase_document_number?: string;
+  purchase_document_date?: string;
+  reference?: string;
+  notes?: string;
+  lines: Array<{
+    product_id: number;
+    quantity: string | number;
+    unit_cost?: string | number;
+  }>;
+}
+
+export interface CreateEgresoPayload {
+  egreso_type?: EgresoType;
+  customer_id?: number;
+  purchase_document_type?: PurchaseDocumentType;
+  purchase_document_number?: string;
+  seller_name?: string;
+  payment_method?: string;
+  bank_name?: string;
+  amount_received?: string | number;
+  purchase_document_date?: string;
+  baja_reason?: BajaReason;
+  adjustment_reason?: AdjustmentReason;
+  reference?: string;
+  notes?: string;
+  lines: Array<{
+    product_id: number;
+    quantity: string | number;
+    unit_cost?: string | number;
+    unit_price?: string | number;
+    unit_price_base?: string | number;
+    discount_type?: "percent" | "fixed";
+    discount_value?: string | number;
+  }>;
+}
+
+export interface CreateBajaPayload {
+  reference: string;
+  notes?: string;
+  lines: Array<{ product_id: number; quantity: string | number }>;
+}
+
+export interface CreateAjustePayload {
+  adjust_type: AdjustType;
+  notes?: string;
+  lines: Array<{ product_id: number; quantity: string | number }>;
+}
+
+export interface InventoryCountLine {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_isbn: string | null;
+  product_codigo_interno: string | null;
+  system_quantity: number;
+  physical_quantity: number;
+  difference_quantity: number;
+  created_at: string;
+}
+
+export interface InventoryCount {
+  id: number;
+  number: string;
+  status: CountStatus;
+  description: string;
+  created_by: number;
+  positive_adjustment_document_id: number | null;
+  negative_adjustment_document_id: number | null;
+  positive_adjustment_document_number: string | null;
+  negative_adjustment_document_number: string | null;
+  applied_at: string | null;
+  created_at: string;
+  updated_at: string;
+  lines: InventoryCountLine[];
+}
+
+export interface CreateInventoryCountPayload {
+  description: string;
+  lines: Array<{ product_id: number; physical_quantity: string | number }>;
+}
+
+export interface UpdateInventoryCountPayload {
+  description: string;
+  lines: Array<{ product_id: number; physical_quantity: string | number }>;
+}
+
+export interface ApplyInventoryCountPayload {
+  line_costs?: Array<{ product_id: number; unit_cost: string | number }>;
+}
+
+export interface AuthCodeResponse {
+  authorization_code: string;
+}
+
+export interface ApprovePayload {
+  authorization_code: string;
+}
+
+export interface SetApprovalCodePayload {
+  approval_code: string;
+}
+
+export interface SaleExchangePayload {
+  returned_lines: Array<{
+    product_id: number;
+    quantity: string | number;
+    return_condition: "available" | "damaged" | "requires_review";
+  }>;
+  new_lines: Array<{
+    product_id: number;
+    quantity: string | number;
+    unit_price?: string | number;
+    unit_price_base?: string | number;
+    discount_type?: "percent" | "fixed";
+    discount_value?: string | number;
+  }>;
+  purchase_document_type?: PurchaseDocumentType;
+  purchase_document_number?: string;
+  purchase_document_date?: string;
+  reference?: string;
+  notes?: string;
+  authorizer_pin?: string;
+}
+
+export interface SaleExchangeResponse {
+  original_document: InventoryDocument;
+  return_document: InventoryDocument;
+  new_document: InventoryDocument;
+  return_total: number;
+  new_total: number;
+  difference_total: number;
+}
+
+// Kardex
+export interface KardexEntry {
+  id: number;
+  product_id: number;
+  document_id: number | null;
+  entry_type: KardexEntryType;
+  quantity_in: number;
+  cost_in: number;
+  quantity_out: number;
+  cost_out: number;
+  balance_quantity: number;
+  balance_value: number;
+  weighted_avg_cost: number;
+  lot_id: number | null;
+  document_number?: string | null;
+  document_doc_type?: DocumentType | null;
+  document_ingreso_type?: IngresoType | null;
+  document_egreso_type?: EgresoType | null;
+  created_at: string;
+}
+
+export interface KardexResponse {
+  product_id: number;
+  method: string;
+  opening_balance_quantity: number;
+  opening_balance_value: number;
+  closing_balance_quantity: number;
+  closing_balance_value: number;
+  weighted_avg_cost: number;
+  entries: KardexEntry[];
+}
+
+// Audit
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  user_id: number | null;
+  username: string | null;
+  ip_address: string | null;
+  action: AuditAction;
+  entity_type: string | null;
+  entity_id: string | null;
+  previous_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  description: string | null;
+}
+
+// System params
+export interface SystemParam {
+  id: number;
+  key: string;
+  value: string;
+  description: string | null;
+  updated_by: number | null;
+  updated_at: string;
+}
+
+// Reports
+export interface ConsolidadoReport {
+  period: { from: string; to: string };
+  movements: Record<string, number>;
+  movements_by_type: {
+    ingresos: Record<string, number>;
+    egresos: Record<string, number>;
+  };
+  movements_amount: {
+    IN: number;
+    EG: number;
+  };
+  movements_amount_by_type: {
+    ingresos: Record<string, number>;
+    egresos: Record<string, number>;
+  };
+  status_summary: Record<string, number>;
+  total_movements: number;
+  total_movements_amount: number;
+  active_products: number;
+  products_below_minimum: number;
+}
+
+export interface SalesDailyClosing {
+  date: string;
+  sales_count: number;
+  sales_total: number;
+}
+
+export interface SalesBySellerSummary {
+  seller_name: string;
+  sales_count: number;
+  sales_total: number;
+  commission_percent: number;
+  commission_amount: number;
+}
+
+export interface SalesCommissionByMonth {
+  month: string;
+  seller_name: string;
+  sales_count: number;
+  sales_total: number;
+  commission_percent: number;
+  commission_amount: number;
+}
+
+export interface SalesByMonthSummary {
+  month: string;
+  sales_total: number;
+}
+
+export interface SalesQuarterSummary {
+  quarter: string;
+  sales_total: number;
+  products_sold: number;
+  top_product_name: string;
+  top_product_quantity: number;
+  utility: number;
+}
+
+export interface VentasReport {
+  period: { from: string; to: string };
+  summary: {
+    sales_total: number;
+    sales_count: number;
+    purchase_total: number;
+    purchase_count: number;
+    utility: number;
+    commission_percent: number;
+    commission_total: number;
+  };
+  daily_closings: SalesDailyClosing[];
+  sales_by_seller: SalesBySellerSummary[];
+  commissions_by_month: SalesCommissionByMonth[];
+  monthly_sales: SalesByMonthSummary[];
+  quarterly_summary: SalesQuarterSummary[];
+}
+
+export interface StockValorizadoItem {
+  id: number;
+  name: string;
+  stock: number;
+  cost: number;
+  value: number;
+  category_id: number;
+}
+
+export interface StockValorizadoReport {
+  method: string;
+  items: StockValorizadoItem[];
+  total_value: number;
+}
+
+export interface DailyClosingDocument {
+  id: number;
+  kind: "sale" | "customer_return";
+  kind_label: string;
+  created_at: string;
+  number: string;
+  total: number;
+  payment_method: string | null;
+  bank_name: string | null;
+}
+
+export interface DailyClosingReport {
+  date: string;
+  summary: {
+    sales_count: number;
+    sales_total: number;
+    cash_total: number;
+    transfer_total: number;
+    unclassified_total: number;
+    returns_count: number;
+    returns_total: number;
+    net_total: number;
+  };
+  transfers_by_bank: Array<{ bank_name: string; total: number }>;
+  documents: DailyClosingDocument[];
+}
+
+// Company config
+export interface CompanyConfig {
+  id: number;
+  razon_social: string;
+  nombre_comercial: string | null;
+  ruc: string;
+  direccion: string | null;
+  telefono: string | null;
+  email: string;
+  logo: string | null;
+  enabled_ingreso_types: IngresoType[];
+  enabled_egreso_types: EgresoType[];
+  enabled_baja_reasons: BajaReason[];
+  sellers: string[];
+  payment_methods: PaymentMethodConfig[];
+  banks: BankConfig[];
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by: number | null;
+}
+
+export interface PaymentMethodConfig {
+  name: string;
+  active: boolean;
+  default: boolean;
+  requires_bank?: boolean;
+}
+
+export interface BankConfig {
+  name: string;
+  active: boolean;
+}
+
+export interface CreateCompanyPayload {
+  razon_social: string;
+  ruc: string;
+  email: string;
+  nombre_comercial?: string;
+  direccion?: string;
+  telefono?: string;
+  logo?: string;
+  enabled_ingreso_types?: IngresoType[];
+  enabled_egreso_types?: EgresoType[];
+  enabled_baja_reasons?: BajaReason[];
+  sellers?: string[];
+  payment_methods?: PaymentMethodConfig[];
+  banks?: BankConfig[];
+}
+
+export interface UpdateCompanyPayload {
+  razon_social?: string;
+  ruc?: string;
+  email?: string;
+  nombre_comercial?: string;
+  direccion?: string;
+  telefono?: string;
+  logo?: string;
+  enabled_ingreso_types?: IngresoType[];
+  enabled_egreso_types?: EgresoType[];
+  enabled_baja_reasons?: BajaReason[];
+  sellers?: string[];
+  payment_methods?: PaymentMethodConfig[];
+  banks?: BankConfig[];
+}
+
+// Pagination helpers
+export interface PaginatedParams {
+  limit?: number;
+  cursor?: number;
 }

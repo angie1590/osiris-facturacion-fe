@@ -78,7 +78,7 @@ export default function LoginPage() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="text-center text-2xl">
-          Osiris Facturación
+          Osiris Inventario
         </CardTitle>
       </CardHeader>
       <CardContent>
