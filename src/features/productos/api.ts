@@ -41,6 +41,15 @@ export interface ProductoDetalle extends ProductoCreateInput {
   cantidad: string;
   permite_fracciones: boolean;
   atributos: ProductoAtributoValue[];
+  bodegas: BodegaStock[];
+}
+
+export interface BodegaStock {
+  id: string;
+  bodega_id: string;
+  codigo_bodega: string;
+  nombre_bodega: string;
+  cantidad: number;
 }
 
 export interface CategoriaAtributo {
