@@ -10,6 +10,8 @@ import NotFound from "@/pages/NotFound";
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
 const ChangePasswordPage = lazy(() => import("@/pages/auth/ChangePasswordPage"));
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const ClientesPage = lazy(() => import("@/pages/personas/ClientesPage"));
+const ProveedoresPage = lazy(() => import("@/pages/personas/ProveedoresPage"));
 const EmpresasPage = lazy(() => import("@/pages/admin/EmpresasPage"));
 
 function PageLoader() {
@@ -34,6 +36,8 @@ export default function App() {
               <Route path="/change-password" element={<ChangePasswordPage />} />
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
+                <Route path="/clientes" element={<ClientesPage />} />
+                <Route path="/proveedores" element={<ProveedoresPage />} />
                 <Route path="/admin/empresas" element={<EmpresasPage />} />
               </Route>
             </Route>

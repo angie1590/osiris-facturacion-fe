@@ -51,3 +51,18 @@ export interface PuntoEmision {
   descripcion: string | null;
   is_active: boolean;
 }
+
+export interface Persona {
+  id: number;
+  empresa_id: number;
+  tipo: "cliente" | "proveedor";
+  identificacion_tipo: IdentificationType;
+  identificacion: string;
+  razon_social: string;
+  nombre_comercial: string | null;
+  email: string | null;
+  telefono: string | null;
+  direccion: string | null;
+  is_active: boolean;
+  created_at: string;
+}
