@@ -64,6 +64,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "catalogo",
   },
   {
+    to: "/atributos",
+    label: "Atributos",
+    icon: ListChecks,
+    roles: ["admin", "supervisor"],
+    section: "catalogo",
+  },
+  {
     to: "/personas",
     label: "Personas",
     icon: Contact,
