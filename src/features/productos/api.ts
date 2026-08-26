@@ -37,12 +37,14 @@ export interface ProductoAtributoValue {
 }
 
 export interface ProveedorPersonaProducto {
+  id: string;
   nombres: string;
   apellidos: string;
   nombre_comercial: string | null;
 }
 
 export interface ProveedorSociedadProducto {
+  id: string;
   razon_social: string;
   nombre_comercial: string | null;
 }
@@ -70,6 +72,9 @@ export interface BodegaOption {
   codigo_bodega: string;
   nombre_bodega: string;
 }
+
+export interface ProveedorPersonaOption { id: string; nombre_comercial: string | null; persona_id: string; }
+export interface ProveedorSociedadOption { id: string; razon_social: string; nombre_comercial: string | null; }
 
 export interface CategoriaAtributo {
   atributo_id: string;
@@ -141,4 +146,18 @@ export async function saveProductoBodega(productoId: string, bodegaId: string, c
     cantidad,
     usuario_auditoria: "frontend",
   });
+}
+
+export async function getProveedoresPersona() {
+  const response = await api.get<{ items: ProveedorPersonaOption[] }>("/proveedores-persona", { params: { limit: 1000, offset: 0, only_active: true } });
+  return response.data.items;
+}
+
+export async function getProveedoresSociedad() {
+  const response = await api.get<{ items: ProveedorSociedadOption[] }>("/proveedores-sociedad", { params: { limit: 1000, offset: 0, only_active: true } });
+  return response.data.items;
+}
+
+export async function saveProductoProveedores(productoId: string, type: "persona" | "sociedad", providerIds: string[]) {
+  await api.put(`/productos/${productoId}/proveedores-${type}`, { proveedor_ids: providerIds });
 }
