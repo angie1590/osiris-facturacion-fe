@@ -36,12 +36,25 @@ export interface ProductoAtributoValue {
   valor: string | number | boolean | null;
 }
 
+export interface ProveedorPersonaProducto {
+  nombres: string;
+  apellidos: string;
+  nombre_comercial: string | null;
+}
+
+export interface ProveedorSociedadProducto {
+  razon_social: string;
+  nombre_comercial: string | null;
+}
+
 export interface ProductoDetalle extends ProductoCreateInput {
   id: string;
   cantidad: string;
   permite_fracciones: boolean;
   atributos: ProductoAtributoValue[];
   bodegas: BodegaStock[];
+  proveedores_persona: ProveedorPersonaProducto[];
+  proveedores_sociedad: ProveedorSociedadProducto[];
 }
 
 export interface BodegaStock {
