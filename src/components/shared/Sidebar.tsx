@@ -50,7 +50,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "catalogo",
   },
   {
-    to: "/categories",
+    to: "/categorias",
     label: "Categorías",
     icon: Tags,
     roles: ["admin", "supervisor"],

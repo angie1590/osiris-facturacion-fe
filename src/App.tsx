@@ -18,6 +18,7 @@ const ChangePasswordPage = lazy(
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
 const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
+const CategoriasCanonicasPage = lazy(() => import("@/pages/CategoriasPage"));
 const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
 const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
 const ProductDetailPage = lazy(
@@ -88,6 +89,7 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
+                <Route path="/categorias" element={<CategoriasCanonicasPage />} />
 
                 {/* Categories - all roles can view; write is gated in-page (admin + supervisor) */}
                 <Route path="/categories" element={<CategoriesPage />} />
