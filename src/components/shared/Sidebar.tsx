@@ -242,6 +242,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "analisis",
   },
   {
+    to: "/reportes/productos",
+    label: "Top productos vendidos",
+    icon: BarChart3,
+    roles: ["admin", "supervisor"],
+    section: "analisis",
+  },
+  {
     to: "/cuentas-por-pagar",
     label: "Cuentas por pagar",
     icon: CreditCard,
