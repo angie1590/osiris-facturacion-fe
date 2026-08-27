@@ -7,6 +7,9 @@ const apiProxyTarget =
   process.env.VITE_API_PROXY_TARGET ?? "http://localhost:8002";
 
 export default defineConfig({
+  define: {
+    __BUNDLED_DEV__: false,
+  },
   test: {
     environment: "jsdom",
     globals: true,
