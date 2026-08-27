@@ -136,6 +136,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "movimientos",
   },
   {
+    to: "/compras",
+    label: "Compras",
+    icon: ArrowDownToLine,
+    roles: ["admin", "supervisor"],
+    section: "movimientos",
+  },
+  {
     to: "/cuentas-por-pagar",
     label: "Cuentas por pagar",
     icon: CreditCard,
