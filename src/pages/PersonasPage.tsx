@@ -17,6 +17,7 @@ import {
   useProveedoresPersona,
   useProveedoresSociedad,
   useTiposCliente,
+  useTiposContribuyente,
 } from "@/features/personas/hooks";
 import type {
   Persona,
@@ -47,6 +48,7 @@ export default function PersonasPage() {
   const createProveedor = useCreateProveedorPersona();
   const createSociedad = useCreateProveedorSociedad();
   const { data: tiposCliente = [] } = useTiposCliente();
+  const { data: tiposContribuyente = [] } = useTiposContribuyente();
   const [form, setForm] = useState(initialForm);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Persona | null>(null);
@@ -212,7 +214,7 @@ export default function PersonasPage() {
             </FormField>
           ) : specialization === "proveedor" ? (
             <div className="space-y-4">
-              <FormField label="Tipo de contribuyente" required><Input value={tipoContribuyenteId} onChange={(event) => setTipoContribuyenteId(event.target.value)} placeholder="Código del catálogo SRI" maxLength={2} /></FormField>
+              <FormField label="Tipo de contribuyente" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={tipoContribuyenteId} onChange={(event) => setTipoContribuyenteId(event.target.value)}><option value="">Selecciona un tipo</option>{tiposContribuyente.map((item) => <option key={item.codigo} value={item.codigo}>{item.codigo} · {item.nombre}</option>)}</select></FormField>
               <FormField label="Nombre comercial"><Input value={nombreComercial} onChange={(event) => setNombreComercial(event.target.value)} /></FormField>
             </div>
           ) : (
@@ -220,7 +222,7 @@ export default function PersonasPage() {
               <FormField label="RUC" required><Input value={sociedad.ruc} onChange={(event) => setSociedad({ ...sociedad, ruc: event.target.value })} maxLength={13} /></FormField>
               <FormField label="Razón social" required><Input value={sociedad.razon_social} onChange={(event) => setSociedad({ ...sociedad, razon_social: event.target.value })} /></FormField>
               <FormField label="Nombre comercial"><Input value={sociedad.nombre_comercial} onChange={(event) => setSociedad({ ...sociedad, nombre_comercial: event.target.value })} /></FormField>
-              <FormField label="Tipo de contribuyente" required><Input value={sociedad.tipo_contribuyente_id} onChange={(event) => setSociedad({ ...sociedad, tipo_contribuyente_id: event.target.value })} maxLength={2} /></FormField>
+              <FormField label="Tipo de contribuyente" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={sociedad.tipo_contribuyente_id} onChange={(event) => setSociedad({ ...sociedad, tipo_contribuyente_id: event.target.value })}><option value="">Selecciona un tipo</option>{tiposContribuyente.map((item) => <option key={item.codigo} value={item.codigo}>{item.codigo} · {item.nombre}</option>)}</select></FormField>
               <FormField label="Dirección" required><Input value={sociedad.direccion} onChange={(event) => setSociedad({ ...sociedad, direccion: event.target.value })} /></FormField>
               <FormField label="Teléfono" required><Input value={sociedad.telefono} onChange={(event) => setSociedad({ ...sociedad, telefono: event.target.value })} /></FormField>
               <FormField label="Email" required><Input type="email" value={sociedad.email} onChange={(event) => setSociedad({ ...sociedad, email: event.target.value })} /></FormField>

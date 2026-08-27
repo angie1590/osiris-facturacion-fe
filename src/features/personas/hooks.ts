@@ -9,6 +9,7 @@ import {
   getProveedoresPersona,
   getProveedoresSociedad,
   getTiposCliente,
+  getTiposContribuyente,
   type PersonaCreateInput,
   type ProveedorSociedadInput,
 } from "@/features/personas/api";
@@ -33,6 +34,10 @@ export function useTiposCliente() {
     queryKey: ["tipos-cliente"],
     queryFn: getTiposCliente,
   });
+}
+
+export function useTiposContribuyente() {
+  return useQuery({ queryKey: ["tipos-contribuyente"], queryFn: getTiposContribuyente });
 }
 
 export function useClientes() {

@@ -40,6 +40,12 @@ export interface TipoCliente {
   descuento: number;
 }
 
+export interface TipoContribuyente {
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+}
+
 export interface Cliente {
   id: string;
   persona_id: string;
@@ -83,6 +89,11 @@ export async function createPersona(input: PersonaCreateInput) {
 export async function getTiposCliente() {
   const response = await api.get<{ items: TipoCliente[] }>("/tipos-cliente");
   return response.data.items;
+}
+
+export async function getTiposContribuyente() {
+  const response = await api.get<TipoContribuyente[]>("/tipos-contribuyente");
+  return response.data;
 }
 
 async function getPaginated<T>(path: string) {
