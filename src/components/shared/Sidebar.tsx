@@ -20,6 +20,7 @@ import {
   Contact,
   FileText,
   CreditCard,
+  FileCheck,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -139,6 +140,13 @@ export const NAV_ITEMS: NavItem[] = [
     to: "/compras",
     label: "Compras",
     icon: ArrowDownToLine,
+    roles: ["admin", "supervisor"],
+    section: "movimientos",
+  },
+  {
+    to: "/retenciones",
+    label: "Retenciones",
+    icon: FileCheck,
     roles: ["admin", "supervisor"],
     section: "movimientos",
   },
