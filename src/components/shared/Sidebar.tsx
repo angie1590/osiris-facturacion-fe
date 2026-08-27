@@ -18,6 +18,7 @@ import {
   ListChecks,
   Truck,
   Contact,
+  FileText,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -125,6 +126,13 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Contact,
     roles: ["admin", "operator", "supervisor"],
     section: "catalogo",
+  },
+  {
+    to: "/ventas",
+    label: "Ventas",
+    icon: FileText,
+    roles: ["admin", "operator", "supervisor"],
+    section: "movimientos",
   },
   {
     to: "/inventory/ingresos",
