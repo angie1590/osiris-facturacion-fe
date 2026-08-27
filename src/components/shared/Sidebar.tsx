@@ -106,6 +106,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "admin",
   },
   {
+    to: "/empresa",
+    label: "Empresa",
+    icon: Building2,
+    roles: ["admin", "supervisor"],
+    section: "admin",
+  },
+  {
     to: "/suppliers",
     label: "Proveedores",
     icon: Truck,
