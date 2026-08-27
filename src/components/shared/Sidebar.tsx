@@ -151,6 +151,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "movimientos",
   },
   {
+    to: "/retenciones/historial",
+    label: "Historial retenciones",
+    icon: FileCheck,
+    roles: ["admin", "supervisor"],
+    section: "analisis",
+  },
+  {
     to: "/documentos-sri",
     label: "Documentos SRI",
     icon: FileCheck,

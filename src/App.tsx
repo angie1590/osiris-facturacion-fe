@@ -29,6 +29,7 @@ const VentasPage = lazy(() => import("@/pages/VentasPage"));
 const CuentasPorPagarPage = lazy(() => import("@/pages/CuentasPorPagarPage"));
 const ComprasPage = lazy(() => import("@/pages/ComprasPage"));
 const RetencionesPage = lazy(() => import("@/pages/RetencionesPage"));
+const RetencionesHistorialPage = lazy(() => import("@/pages/RetencionesHistorialPage"));
 const DocumentosSRIPage = lazy(() => import("@/pages/DocumentosSRIPage"));
 const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
 const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
@@ -110,6 +111,7 @@ export default function App() {
                 <Route path="/ventas" element={<VentasPage />} />
                 <Route path="/compras" element={<ComprasPage />} />
                 <Route path="/retenciones" element={<RetencionesPage />} />
+                <Route path="/retenciones/historial" element={<RetencionesHistorialPage />} />
                 <Route path="/documentos-sri" element={<DocumentosSRIPage />} />
                 <Route path="/cuentas-por-pagar" element={<CuentasPorPagarPage />} />
 
