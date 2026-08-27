@@ -19,6 +19,7 @@ import {
   Truck,
   Contact,
   FileText,
+  CreditCard,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -132,6 +133,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Ventas",
     icon: FileText,
     roles: ["admin", "operator", "supervisor"],
+    section: "movimientos",
+  },
+  {
+    to: "/cuentas-por-pagar",
+    label: "Cuentas por pagar",
+    icon: CreditCard,
+    roles: ["admin", "supervisor"],
     section: "movimientos",
   },
   {

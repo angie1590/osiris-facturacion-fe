@@ -26,6 +26,7 @@ const ConfiguracionOperativaPage = lazy(() => import("@/pages/ConfiguracionOpera
 const ImpuestosPage = lazy(() => import("@/pages/ImpuestosPage"));
 const EmpresaCanonicaPage = lazy(() => import("@/pages/EmpresaCanonicaPage"));
 const VentasPage = lazy(() => import("@/pages/VentasPage"));
+const CuentasPorPagarPage = lazy(() => import("@/pages/CuentasPorPagarPage"));
 const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
 const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
 const ProductDetailPage = lazy(
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/impuestos" element={<ImpuestosPage />} />
                 <Route path="/empresa" element={<EmpresaCanonicaPage />} />
                 <Route path="/ventas" element={<VentasPage />} />
+                <Route path="/cuentas-por-pagar" element={<CuentasPorPagarPage />} />
 
                 {/* Categories - all roles can view; write is gated in-page (admin + supervisor) */}
                 <Route path="/categories" element={<CategoriesPage />} />
