@@ -179,6 +179,13 @@ export const NAV_ITEMS: NavItem[] = [
     section: "analisis",
   },
   {
+    to: "/reportes/sri",
+    label: "Reporte SRI",
+    icon: BarChart3,
+    roles: ["admin", "supervisor"],
+    section: "analisis",
+  },
+  {
     to: "/cuentas-por-pagar",
     label: "Cuentas por pagar",
     icon: CreditCard,
