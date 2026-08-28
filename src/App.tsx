@@ -43,6 +43,7 @@ const ReporteRentabilidadPage = lazy(() => import("@/pages/ReporteRentabilidadPa
 const ReporteRentabilidadTransaccionesPage = lazy(() => import("@/pages/ReporteRentabilidadTransaccionesPage"));
 const ReporteTopProductosPage = lazy(() => import("@/pages/ReporteTopProductosPage"));
 const ReporteTendenciasVentasPage = lazy(() => import("@/pages/ReporteTendenciasVentasPage"));
+const ReporteVendedoresPage = lazy(() => import("@/pages/ReporteVendedoresPage"));
 const DocumentosSRIPage = lazy(() => import("@/pages/DocumentosSRIPage"));
 const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
 const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
@@ -138,6 +139,7 @@ export default function App() {
                 <Route path="/reportes/rentabilidad/transacciones" element={<ReporteRentabilidadTransaccionesPage />} />
                 <Route path="/reportes/productos" element={<ReporteTopProductosPage />} />
                 <Route path="/reportes/ventas/tendencias" element={<ReporteTendenciasVentasPage />} />
+                <Route path="/reportes/ventas/vendedores" element={<ReporteVendedoresPage />} />
                 <Route path="/documentos-sri" element={<DocumentosSRIPage />} />
                 <Route path="/cuentas-por-pagar" element={<CuentasPorPagarPage />} />
 
