@@ -229,7 +229,7 @@ export function Topbar({
           </div>
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.12em] text-cyan-100/80">
-              OSIRIS Inventario
+              OSIRIS Facturación
             </p>
             <p className="truncate font-semibold text-white">
               {currentSection}
