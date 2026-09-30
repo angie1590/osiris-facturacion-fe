@@ -41,4 +41,23 @@ describe("Sidebar NAV_ITEMS", () => {
       to: "/inventory/ingresos/new",
     });
   });
+
+  it("restringe módulos sensibles para operadores", () => {
+    const operatorRoutes = NAV_ITEMS.filter((item) =>
+      item.roles.includes("operator"),
+    ).map((item) => item.to);
+
+    expect(operatorRoutes).toContain("/ventas");
+    expect(operatorRoutes).toContain("/cuentas-por-cobrar");
+    expect(operatorRoutes).toContain("/inventory/egresos");
+    expect(operatorRoutes).not.toContain("/compras");
+    expect(operatorRoutes).not.toContain("/empresa");
+    expect(operatorRoutes).not.toContain("/reports");
+    expect(operatorRoutes).not.toContain("/admin/users");
+  });
+
+  it("reserva parámetros exclusivamente para administradores", () => {
+    const params = NAV_ITEMS.find((item) => item.to === "/admin/params");
+    expect(params?.roles).toEqual(["admin"]);
+  });
 });

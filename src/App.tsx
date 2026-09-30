@@ -147,87 +147,93 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
-                <Route
-                  path="/categorias"
-                  element={<CategoriasCanonicasPage />}
-                />
-                <Route path="/atributos" element={<AtributosPage />} />
-                <Route
-                  path="/categorias-atributos"
-                  element={<CategoriasAtributosPage />}
-                />
-                <Route path="/bodegas" element={<BodegasPage />} />
-                <Route
-                  path="/configuracion-operativa"
-                  element={<ConfiguracionOperativaPage />}
-                />
-                <Route path="/impuestos" element={<ImpuestosPage />} />
                 <Route path="/ventas" element={<VentasPage />} />
                 <Route
                   path="/cuentas-por-cobrar"
                   element={<CuentasPorCobrarPage />}
                 />
-                <Route path="/compras" element={<ComprasPage />} />
-                <Route path="/retenciones" element={<RetencionesPage />} />
-                <Route
-                  path="/retenciones/historial"
-                  element={<RetencionesHistorialPage />}
-                />
-                <Route
-                  path="/reportes/compras"
-                  element={<ReporteComprasPage />}
-                />
-                <Route
-                  path="/reportes/cartera-pagar"
-                  element={<ReporteCarteraPagarPage />}
-                />
-                <Route
-                  path="/reportes/cartera-cobrar"
-                  element={<ReporteCarteraCobrarPage />}
-                />
-                <Route path="/reportes/sri" element={<ReporteSRIPage />} />
-                <Route
-                  path="/reportes/tributario"
-                  element={<ReporteTributarioPage />}
-                />
-                <Route
-                  path="/reportes/ventas"
-                  element={<ReporteVentasCanonicoPage />}
-                />
-                <Route
-                  path="/reportes/inventario/valoracion"
-                  element={<ReporteValoracionInventarioPage />}
-                />
-                <Route
-                  path="/reportes/inventario/kardex"
-                  element={<ReporteKardexPage />}
-                />
-                <Route path="/reportes/caja" element={<ReporteCajaPage />} />
-                <Route
-                  path="/reportes/rentabilidad"
-                  element={<ReporteRentabilidadPage />}
-                />
-                <Route
-                  path="/reportes/rentabilidad/transacciones"
-                  element={<ReporteRentabilidadTransaccionesPage />}
-                />
-                <Route
-                  path="/reportes/productos"
-                  element={<ReporteTopProductosPage />}
-                />
-                <Route
-                  path="/reportes/ventas/tendencias"
-                  element={<ReporteTendenciasVentasPage />}
-                />
-                <Route
-                  path="/reportes/ventas/vendedores"
-                  element={<ReporteVendedoresPage />}
-                />
-                <Route path="/documentos-sri" element={<DocumentosSRIPage />} />
-                <Route
-                  path="/cuentas-por-pagar"
-                  element={<CuentasPorPagarPage />}
-                />
+
+                <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
+                  <Route
+                    path="/categorias"
+                    element={<CategoriasCanonicasPage />}
+                  />
+                  <Route path="/atributos" element={<AtributosPage />} />
+                  <Route
+                    path="/categorias-atributos"
+                    element={<CategoriasAtributosPage />}
+                  />
+                  <Route path="/bodegas" element={<BodegasPage />} />
+                  <Route
+                    path="/configuracion-operativa"
+                    element={<ConfiguracionOperativaPage />}
+                  />
+                  <Route path="/impuestos" element={<ImpuestosPage />} />
+                  <Route path="/compras" element={<ComprasPage />} />
+                  <Route path="/retenciones" element={<RetencionesPage />} />
+                  <Route
+                    path="/retenciones/historial"
+                    element={<RetencionesHistorialPage />}
+                  />
+                  <Route
+                    path="/cuentas-por-pagar"
+                    element={<CuentasPorPagarPage />}
+                  />
+                  <Route
+                    path="/reportes/compras"
+                    element={<ReporteComprasPage />}
+                  />
+                  <Route
+                    path="/reportes/cartera-pagar"
+                    element={<ReporteCarteraPagarPage />}
+                  />
+                  <Route
+                    path="/reportes/cartera-cobrar"
+                    element={<ReporteCarteraCobrarPage />}
+                  />
+                  <Route path="/reportes/sri" element={<ReporteSRIPage />} />
+                  <Route
+                    path="/reportes/tributario"
+                    element={<ReporteTributarioPage />}
+                  />
+                  <Route
+                    path="/reportes/ventas"
+                    element={<ReporteVentasCanonicoPage />}
+                  />
+                  <Route
+                    path="/reportes/inventario/valoracion"
+                    element={<ReporteValoracionInventarioPage />}
+                  />
+                  <Route
+                    path="/reportes/inventario/kardex"
+                    element={<ReporteKardexPage />}
+                  />
+                  <Route path="/reportes/caja" element={<ReporteCajaPage />} />
+                  <Route
+                    path="/reportes/rentabilidad"
+                    element={<ReporteRentabilidadPage />}
+                  />
+                  <Route
+                    path="/reportes/rentabilidad/transacciones"
+                    element={<ReporteRentabilidadTransaccionesPage />}
+                  />
+                  <Route
+                    path="/reportes/productos"
+                    element={<ReporteTopProductosPage />}
+                  />
+                  <Route
+                    path="/reportes/ventas/tendencias"
+                    element={<ReporteTendenciasVentasPage />}
+                  />
+                  <Route
+                    path="/reportes/ventas/vendedores"
+                    element={<ReporteVendedoresPage />}
+                  />
+                  <Route
+                    path="/documentos-sri"
+                    element={<DocumentosSRIPage />}
+                  />
+                </Route>
 
                 {/* Categories - all roles can view; write is gated in-page (admin + supervisor) */}
                 <Route path="/categories" element={<CategoriesPage />} />
@@ -250,11 +256,9 @@ export default function App() {
                   <Route path="/catalogs" element={<CatalogsPage />} />
                 </Route>
 
-                {/* Ingresos: vendedores solo pueden registrar compras */}
+                {/* Movimientos de ingreso no comerciales: admin + supervisor */}
                 <Route
-                  element={
-                    <RoleGuard roles={["admin", "operator", "supervisor"]} />
-                  }
+                  element={<RoleGuard roles={["admin", "supervisor"]} />}
                 >
                   <Route
                     path="/inventory/ingresos"

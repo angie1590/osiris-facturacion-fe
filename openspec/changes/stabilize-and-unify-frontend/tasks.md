@@ -27,6 +27,6 @@
 
 ## 5. Aceptación
 
-- [ ] 5.1 Ejecutar pruebas de roles y navegación.
-- [ ] 5.2 Ejecutar smoke E2E contra backend y PostgreSQL locales.
-- [ ] 5.3 Confirmar test, lint y build verdes antes del piloto.
+- [x] 5.1 Ejecutar pruebas de roles y navegación.
+- [x] 5.2 Ejecutar smoke E2E contra backend y PostgreSQL locales.
+- [x] 5.3 Confirmar test, lint y build verdes antes del piloto.
