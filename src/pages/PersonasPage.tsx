@@ -128,16 +128,21 @@ export default function PersonasPage() {
     const persona = data?.items.find((item) => item.id === id);
     return persona ? `${persona.nombre} ${persona.apellido}` : id;
   };
+  const tipoClienteName = (id: string) =>
+    tiposCliente.find((item) => item.id === id)?.nombre ?? "Tipo no disponible";
+  const tipoContribuyenteName = (id: string) =>
+    tiposContribuyente.find((item) => item.codigo === id)?.nombre ??
+    "Tipo no disponible";
 
   const clienteColumns: Column<Cliente>[] = [
     { key: "persona", header: "Persona", cell: (row) => personaName(row.persona_id) },
-    { key: "tipo", header: "Tipo de cliente", cell: (row) => row.tipo_cliente_id },
+    { key: "tipo", header: "Tipo de cliente", cell: (row) => tipoClienteName(row.tipo_cliente_id) },
   ];
 
   const proveedorPersonaColumns: Column<ProveedorPersona>[] = [
     { key: "persona", header: "Persona", cell: (row) => personaName(row.persona_id) },
     { key: "nombre", header: "Nombre comercial", cell: (row) => row.nombre_comercial || "—" },
-    { key: "contribuyente", header: "Contribuyente", cell: (row) => row.tipo_contribuyente_id },
+    { key: "contribuyente", header: "Contribuyente", cell: (row) => tipoContribuyenteName(row.tipo_contribuyente_id) },
   ];
 
   const proveedorSociedadColumns: Column<ProveedorSociedad>[] = [

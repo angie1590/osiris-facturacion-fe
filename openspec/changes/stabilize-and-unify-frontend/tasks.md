@@ -7,16 +7,16 @@
 ## 2. Consolidar Navegación y Contratos
 
 - [x] 2.1 Definir el mapa único de rutas y permisos para los ocho módulos del MVP.
-- [ ] 2.2 Seleccionar componentes canónicos para productos, clientes y proveedores.
-- [ ] 2.3 Añadir redirecciones temporales y pruebas para rutas heredadas con consumidores.
-- [ ] 2.4 Centralizar tipos, hooks y manejo de errores de los endpoints canónicos.
+- [x] 2.2 Seleccionar componentes canónicos para productos, clientes y proveedores.
+- [x] 2.3 Añadir redirecciones temporales y pruebas para rutas heredadas con consumidores.
+- [x] 2.4 Centralizar tipos, hooks y manejo de errores de los endpoints canónicos.
 
 ## 3. Unificar Recorridos
 
-- [ ] 3.1 Consolidar compra, ingreso automático, CxP y retención en un recorrido comercial.
-- [ ] 3.2 Consolidar venta, egreso automático, CxC y estado SRI en un recorrido comercial.
-- [ ] 3.3 Reservar Inventario para operaciones no comerciales, existencias, conteos y kárdex.
-- [ ] 3.4 Mostrar nombres legibles, referencias y estados en lugar de IDs como etiqueta principal.
+- [x] 3.1 Consolidar compra, ingreso automático, CxP y retención en un recorrido comercial.
+- [x] 3.2 Consolidar venta, egreso automático, CxC y estado SRI en un recorrido comercial.
+- [x] 3.3 Reservar Inventario para operaciones no comerciales, existencias, conteos y kárdex.
+- [x] 3.4 Mostrar nombres legibles, referencias y estados en lugar de IDs como etiqueta principal.
 
 ## 4. Adaptar Imágenes de Referencia
 

@@ -55,7 +55,16 @@ export const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {
   other: "Otro",
 };
 
-const INVENTORY_EGRESO_TYPES: EgresoType[] = [
+export const INVENTORY_INGRESO_TYPES: IngresoType[] = [
+  "initial_inventory",
+  "adjustment_positive",
+  "customer_return",
+  "production",
+  "transfer_received",
+  "other",
+];
+
+export const INVENTORY_EGRESO_TYPES: EgresoType[] = [
   "baja",
   "adjustment_negative",
   "supplier_return",

@@ -7,6 +7,10 @@ import AppLayout from "@/layouts/AppLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import Forbidden from "@/pages/Forbidden";
 import NotFound from "@/pages/NotFound";
+import {
+  INVENTORY_LEGACY_REDIRECTS,
+  MANAGEMENT_LEGACY_REDIRECTS,
+} from "@/lib/route-redirects";
 
 // Auth pages
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage"));
@@ -30,6 +34,9 @@ const ConfiguracionOperativaPage = lazy(
 const ImpuestosPage = lazy(() => import("@/pages/ImpuestosPage"));
 const EmpresaCanonicaPage = lazy(() => import("@/pages/EmpresaCanonicaPage"));
 const VentasPage = lazy(() => import("@/pages/VentasPage"));
+const CuentasPorCobrarPage = lazy(
+  () => import("@/pages/CuentasPorCobrarPage"),
+);
 const CuentasPorPagarPage = lazy(() => import("@/pages/CuentasPorPagarPage"));
 const ComprasPage = lazy(() => import("@/pages/ComprasPage"));
 const RetencionesPage = lazy(() => import("@/pages/RetencionesPage"));
@@ -156,6 +163,10 @@ export default function App() {
                 />
                 <Route path="/impuestos" element={<ImpuestosPage />} />
                 <Route path="/ventas" element={<VentasPage />} />
+                <Route
+                  path="/cuentas-por-cobrar"
+                  element={<CuentasPorCobrarPage />}
+                />
                 <Route path="/compras" element={<ComprasPage />} />
                 <Route path="/retenciones" element={<RetencionesPage />} />
                 <Route
@@ -257,30 +268,13 @@ export default function App() {
                     path="/inventory/ingresos/:id"
                     element={<IngresoDetailPage />}
                   />
-                  <Route
-                    path="/inventory/bajas"
-                    element={<Navigate to="/inventory/egresos" replace />}
-                  />
-                  <Route
-                    path="/inventory/bajas/new"
-                    element={<Navigate to="/inventory/egresos/new" replace />}
-                  />
-                  <Route
-                    path="/inventory/bajas/:id"
-                    element={<Navigate to="/inventory/egresos" replace />}
-                  />
-                  <Route
-                    path="/inventory/ajustes"
-                    element={<Navigate to="/inventory/ingresos" replace />}
-                  />
-                  <Route
-                    path="/inventory/ajustes/new"
-                    element={<Navigate to="/inventory/ingresos/new" replace />}
-                  />
-                  <Route
-                    path="/inventory/ajustes/:id"
-                    element={<Navigate to="/inventory/ingresos" replace />}
-                  />
+                  {INVENTORY_LEGACY_REDIRECTS.map(({ from, to }) => (
+                    <Route
+                      key={from}
+                      path={from}
+                      element={<Navigate to={to} replace />}
+                    />
+                  ))}
                 </Route>
 
                 {/* Egresos y conteos - todos los roles */}
@@ -319,10 +313,13 @@ export default function App() {
                 {/* Admin */}
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
                   <Route path="/empresa" element={<EmpresaCanonicaPage />} />
-                  <Route
-                    path="/admin/company"
-                    element={<Navigate to="/empresa" replace />}
-                  />
+                  {MANAGEMENT_LEGACY_REDIRECTS.map(({ from, to }) => (
+                    <Route
+                      key={from}
+                      path={from}
+                      element={<Navigate to={to} replace />}
+                    />
+                  ))}
                   <Route path="/admin/users" element={<AdminUsersPage />} />
                 </Route>
                 <Route element={<RoleGuard roles={["admin"]} />}>

@@ -50,10 +50,10 @@ import {
 } from "@/features/inventory/hooks";
 import {
   INGRESO_DOCUMENT_TYPES,
+  INVENTORY_INGRESO_TYPES,
   PURCHASE_DOCUMENT_TYPE_LABELS,
 } from "@/features/inventory/documentTypes";
 import { useCompanyConfig } from "@/features/admin/hooks";
-import { useAuth } from "@/contexts/AuthContext";
 import { useFitsScreen } from "@/hooks/use-fits-screen";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -64,15 +64,6 @@ import type {
   PurchaseDocumentType,
 } from "@/types/api";
 
-const ALL_INGRESO_TYPES: IngresoType[] = [
-  "purchase",
-  "initial_inventory",
-  "adjustment_positive",
-  "customer_return",
-  "production",
-  "transfer_received",
-  "other",
-];
 const INGRESO_TYPE_LABELS: Record<IngresoType, string> = {
   purchase: "Compra",
   initial_inventory: "Inventario inicial",
@@ -333,7 +324,6 @@ function getNowDateTimeLocalInput() {
 export default function IngresoNewPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
   const create = useCreateIngreso();
   const createSupplier = useCreateSupplier();
   const uploadAttachment = useUploadIngresoAttachment();
@@ -365,8 +355,8 @@ export default function IngresoNewPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      ingreso_type: "purchase",
-      purchase_document_type: "invoice",
+      ingreso_type: "initial_inventory",
+      purchase_document_type: "inventory_act",
       purchase_document_date: getNowDateTimeLocalInput(),
     },
   });
@@ -413,13 +403,13 @@ export default function IngresoNewPage() {
     });
 
   const enabledIngresoTypes = useMemo(
-    () =>
-      user?.role === "operator"
-        ? (["purchase"] as IngresoType[])
-        : company?.enabled_ingreso_types?.length
-          ? company.enabled_ingreso_types
-          : ALL_INGRESO_TYPES,
-    [company?.enabled_ingreso_types, user?.role],
+    () => {
+      const configured = company?.enabled_ingreso_types?.filter((type) =>
+        INVENTORY_INGRESO_TYPES.includes(type),
+      );
+      return configured?.length ? configured : INVENTORY_INGRESO_TYPES;
+    },
+    [company?.enabled_ingreso_types],
   );
   const sortedIngresoTypes = useMemo(
     () =>

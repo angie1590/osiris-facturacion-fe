@@ -115,6 +115,7 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   ],
   movimientos: [
     { type: "item", to: "/ventas" },
+    { type: "item", to: "/cuentas-por-cobrar" },
     { type: "item", to: "/compras" },
     { type: "item", to: "/retenciones" },
     { type: "group", id: "movimientos-inventario" },
@@ -243,6 +244,13 @@ export const NAV_ITEMS: NavItem[] = [
     to: "/ventas",
     label: "Ventas",
     icon: FileText,
+    roles: ["admin", "operator", "supervisor"],
+    section: "movimientos",
+  },
+  {
+    to: "/cuentas-por-cobrar",
+    label: "Cuentas por cobrar",
+    icon: CreditCard,
     roles: ["admin", "operator", "supervisor"],
     section: "movimientos",
   },

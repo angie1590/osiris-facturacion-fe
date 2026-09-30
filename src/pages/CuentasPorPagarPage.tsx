@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CreditCard, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +13,21 @@ import api from "@/lib/api";
 type Cuenta = { id: string; compra_id: string; proveedor_id: string; proveedor: string; numero_factura: string; fecha_emision: string; valor_total_factura: string; valor_retenido: string; pagos_acumulados: string; saldo_pendiente: string; estado: string };
 
 export default function CuentasPorPagarPage() {
+  const [searchParams] = useSearchParams();
+  const requestedCompraId = searchParams.get("compra");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Cuenta | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [payment, setPayment] = useState({ monto: "", forma_pago: "EFECTIVO" });
   const query = useQuery({ queryKey: ["cxp-canonicas", search], queryFn: async () => (await api.get<{ items: Cuenta[] }>("/cxp", { params: { limit: 500, offset: 0, only_active: true, texto: search || undefined } })).data.items });
+  useEffect(() => {
+    if (!requestedCompraId || selected) return;
+    const requestedAccount = query.data?.find(
+      (account) => account.compra_id === requestedCompraId,
+    );
+    if (requestedAccount) setSelected(requestedAccount);
+  }, [query.data, requestedCompraId, selected]);
   const paymentMutation = useMutation({ mutationFn: async () => (await api.post(`/cxp/${selected!.compra_id}/pagos`, { monto: Number(payment.monto), forma_pago: payment.forma_pago, usuario_auditoria: "frontend" })).data, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["cxp-canonicas"] }); setPaymentOpen(false); setSelected(null); setPayment({ monto: "", forma_pago: "EFECTIVO" }); } });
   const columns: Column<Cuenta>[] = [
     { key: "proveedor", header: "Proveedor", cell: (row) => row.proveedor, sortable: true, sortAccessor: (row) => row.proveedor },

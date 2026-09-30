@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   EGRESO_DOCUMENT_TYPES,
+  INVENTORY_EGRESO_TYPES,
+  INVENTORY_INGRESO_TYPES,
   getDefaultEgresoDocumentType,
   isEgresoDocumentDateRequired,
   isEgresoNotesRequired,
@@ -41,5 +43,12 @@ describe("egreso document mapping", () => {
   it("defaults sale egreso to sales_note", () => {
     expect(getDefaultEgresoDocumentType("sale")).toBe("sales_note");
     expect(getDefaultEgresoDocumentType("other")).toBe("other");
+  });
+
+  it("separa compras y ventas de los movimientos directos", () => {
+    expect(INVENTORY_INGRESO_TYPES).not.toContain("purchase");
+    expect(INVENTORY_EGRESO_TYPES).not.toContain("sale");
+    expect(INVENTORY_INGRESO_TYPES).toContain("initial_inventory");
+    expect(INVENTORY_EGRESO_TYPES).toContain("baja");
   });
 });

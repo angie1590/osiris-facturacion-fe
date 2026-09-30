@@ -35,6 +35,7 @@ import {
 } from "@/features/inventory/DocumentLinesEditor";
 import {
   EGRESO_DOCUMENT_TYPES,
+  INVENTORY_EGRESO_TYPES,
   BAJA_REASON_LABELS,
   ADJUSTMENT_REASON_LABELS,
   getDefaultEgresoDocumentType,
@@ -53,7 +54,6 @@ import { useCompanyConfig } from "@/features/admin/hooks";
 import { useFitsScreen } from "@/hooks/use-fits-screen";
 import { useSaleProductCodeDisplay } from "@/hooks/useStockMode";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 import { getApiErrorMessage } from "@/lib/api-error";
 import {
   ID_TYPE_LABEL,
@@ -74,16 +74,6 @@ import type {
   KardexResponse,
   SupplierIdentificationType,
 } from "@/types/api";
-
-const ALL_EGRESO_TYPES: EgresoType[] = [
-  "sale",
-  "baja",
-  "adjustment_negative",
-  "supplier_return",
-  "internal_consumption",
-  "transfer_sent",
-  "other",
-];
 
 const EGRESO_TYPE_LABELS: Record<EgresoType, string> = {
   sale: "Venta",
@@ -269,8 +259,6 @@ const customerNotes = (customer: InventoryCustomer) =>
 export default function EgresoNewPage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
-  const saleOnly = user?.role === "operator";
   const create = useCreateEgreso();
   const { data: company } = useCompanyConfig();
   const saleProductCodeDisplay = useSaleProductCodeDisplay();
@@ -294,13 +282,13 @@ export default function EgresoNewPage() {
     useState<InventoryDocument | null>(null);
   const costSyncRef = useRef(0);
   const enabledEgresoTypes = useMemo(
-    () =>
-      saleOnly
-        ? (["sale"] as EgresoType[])
-        : company?.enabled_egreso_types?.length
-          ? company.enabled_egreso_types
-          : ALL_EGRESO_TYPES,
-    [company?.enabled_egreso_types, saleOnly],
+    () => {
+      const configured = company?.enabled_egreso_types?.filter((type) =>
+        INVENTORY_EGRESO_TYPES.includes(type),
+      );
+      return configured?.length ? configured : INVENTORY_EGRESO_TYPES;
+    },
+    [company?.enabled_egreso_types],
   );
   const enabledBajaReasons = useMemo<BajaReason[]>(
     () =>
@@ -354,8 +342,8 @@ export default function EgresoNewPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      egreso_type: "sale",
-      purchase_document_type: "sales_note",
+      egreso_type: "baja",
+      purchase_document_type: "disposal_act",
       seller_name: undefined,
       payment_method: "EFECTIVO",
       bank_name: undefined,
