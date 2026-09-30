@@ -9,6 +9,7 @@ import {
   Mail,
   MapPin,
   ReceiptText,
+  Search,
   Save,
   Trash2,
   Upload,
@@ -24,7 +25,6 @@ import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 import { ConfigurationNotice } from "@/components/shared/ConfigurationNotice";
 import { ConfigurationPanel } from "@/components/shared/ConfigurationPanel";
-import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
@@ -175,8 +175,17 @@ type ImpuestoCatalogo = {
   codigo_sri: string;
   descripcion: string;
   porcentaje_iva: string | null;
+  tarifa_ad_valorem?: string | null;
+  tarifa_especifica?: string | null;
+  clasificacion_iva?: string | null;
   activo: boolean;
 };
+
+const TAX_TYPES = [
+  { value: "IVA", label: "IVA", description: "Tarifas y clasificación de IVA" },
+  { value: "ICE", label: "ICE", description: "Impuesto a consumos especiales" },
+  { value: "IRBPNR", label: "IRBPNR", description: "Impuesto redimible a las botellas plásticas" },
+] as const;
 
 type Sucursal = {
   id: string;
@@ -242,6 +251,8 @@ export default function EmpresaCanonicaPage() {
   const [signaturePassword, setSignaturePassword] = useState("");
   const [signaturePasswordConfirmation, setSignaturePasswordConfirmation] = useState("");
   const [signatureError, setSignatureError] = useState<string | null>(null);
+  const [taxType, setTaxType] = useState<string>("IVA");
+  const [taxSearch, setTaxSearch] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certificateInputRef = useRef<HTMLInputElement>(null);
   const certificateMutation = useSriRucCertificatePreview();
@@ -486,38 +497,27 @@ export default function EmpresaCanonicaPage() {
       setSignatureError(getApiErrorMessage(error, "No se pudo eliminar la firma electrónica.")),
   });
 
-  const taxColumns: Column<ImpuestoCatalogo>[] = [
-    {
-      key: "seleccion",
-      header: "Activo para la empresa",
-      className: "w-32",
-      cell: (row) => (
-        <input
-          type="checkbox"
-          aria-label={`Usar ${row.descripcion}`}
-          checked={selectedTaxIds.includes(row.id)}
-          onChange={(event) => {
-            const next = event.target.checked
-              ? [...selectedTaxIds, row.id]
-              : selectedTaxIds.filter((id) => id !== row.id);
-            setValue("impuesto_catalogo_ids", next, { shouldDirty: true });
-          }}
-        />
-      ),
-    },
-    { key: "tipo", header: "Tipo", cell: (row) => row.tipo_impuesto },
-    { key: "codigo", header: "Código SRI", cell: (row) => row.codigo_sri },
-    {
-      key: "descripcion",
-      header: "Impuesto vigente",
-      cell: (row) => row.descripcion,
-    },
-    {
-      key: "porcentaje",
-      header: "Tarifa",
-      cell: (row) => (row.porcentaje_iva ? `${row.porcentaje_iva}%` : "—"),
-    },
-  ];
+  const visibleTaxes = useMemo(() => {
+    const normalizedSearch = taxSearch.trim().toLocaleLowerCase("es-EC");
+    return (impuestos.data ?? []).filter((item) => {
+      if (item.tipo_impuesto !== taxType) return false;
+      if (!normalizedSearch) return true;
+      return `${item.descripcion} ${item.codigo_sri} ${item.porcentaje_iva ?? ""}`
+        .toLocaleLowerCase("es-EC")
+        .includes(normalizedSearch);
+    });
+  }, [impuestos.data, taxSearch, taxType]);
+
+  const selectedTaxes = (impuestos.data ?? []).filter((tax) =>
+    selectedTaxIds.includes(tax.id),
+  );
+
+  const toggleTax = (taxId: string) => {
+    const next = selectedTaxIds.includes(taxId)
+      ? selectedTaxIds.filter((id) => id !== taxId)
+      : [...selectedTaxIds, taxId];
+    setValue("impuesto_catalogo_ids", next, { shouldDirty: true });
+  };
 
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -823,20 +823,133 @@ export default function EmpresaCanonicaPage() {
           </div>
 
           <div className="mt-6 space-y-3 border-t pt-5">
-            <div>
-              <h3 className="text-sm font-semibold">Impuestos aplicables a la empresa</h3>
-              <p className="text-xs text-muted-foreground">Selecciona los impuestos vigentes del catálogo SRI que aplican al emisor. Esto no modifica los impuestos configurados por producto.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold">Impuestos de la empresa</h3>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Elige el tipo de impuesto y marca las tarifas que utiliza tu empresa. La configuración de impuestos por producto se mantiene por separado.
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                {selectedTaxes.length} seleccionados
+              </span>
             </div>
-            <DataTable
-              columns={taxColumns}
-              data={impuestos.data ?? []}
-              rowKey={(row) => row.id}
-              isLoading={impuestos.isLoading}
-              isError={impuestos.isError}
-              onRetry={impuestos.refetch}
-              emptyHeading="No hay impuestos vigentes"
-              emptyDescription="El catálogo vigente del SRI aparecerá aquí."
-            />
+
+            <div className="grid gap-4 lg:grid-cols-[minmax(180px,0.7fr)_2fr]">
+              <nav aria-label="Tipo de impuesto" className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
+                {TAX_TYPES.map((type) => {
+                  const count = impuestos.data?.filter((tax) => tax.tipo_impuesto === type.value).length ?? 0;
+                  const active = taxType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        setTaxType(type.value);
+                        setTaxSearch("");
+                      }}
+                      className={`flex min-w-32 items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors lg:min-w-0 ${
+                        active
+                          ? "border-primary bg-primary/5 text-primary shadow-sm"
+                          : "border-border bg-background hover:bg-muted/50"
+                      }`}
+                    >
+                      <span>
+                        <span className="block text-sm font-semibold">{type.label}</span>
+                        <span className="hidden text-xs text-muted-foreground lg:block">{type.description}</span>
+                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{count}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              <section aria-label={`Opciones ${taxType}`} className="min-w-0 rounded-xl border bg-card p-4">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold">{TAX_TYPES.find((type) => type.value === taxType)?.description}</h4>
+                    <p className="text-xs text-muted-foreground">
+                      {visibleTaxes.length} opciones vigentes
+                    </p>
+                  </div>
+                  <div className="relative w-full sm:max-w-xs">
+                    <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={taxSearch}
+                      onChange={(event) => setTaxSearch(event.target.value)}
+                      placeholder={`Buscar ${taxType}...`}
+                      aria-label={`Buscar opciones de ${taxType}`}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                {impuestos.isLoading ? (
+                  <div className="space-y-2" aria-label="Cargando catálogo de impuestos">
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                    <Skeleton className="h-14 w-full" />
+                  </div>
+                ) : impuestos.isError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                      No se pudo cargar el catálogo de impuestos.
+                      <Button type="button" size="sm" variant="outline" onClick={() => impuestos.refetch()}>Reintentar</Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : visibleTaxes.length === 0 ? (
+                  <div className="rounded-lg border border-dashed p-8 text-center">
+                    <p className="font-medium">No hay opciones para mostrar</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Prueba otra búsqueda o revisa el catálogo vigente del SRI.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className={`grid gap-2 ${taxType === "IVA" ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
+                    {visibleTaxes.map((tax) => {
+                      const selected = selectedTaxIds.includes(tax.id);
+                      const rate = tax.tipo_impuesto === "IVA"
+                        ? tax.porcentaje_iva != null ? `${tax.porcentaje_iva}%` : null
+                        : tax.tarifa_ad_valorem != null
+                          ? `${tax.tarifa_ad_valorem}% ad valorem`
+                          : tax.tarifa_especifica != null
+                            ? `Tarifa específica ${tax.tarifa_especifica}`
+                            : null;
+                      return (
+                        <li key={tax.id}>
+                          <label className={`flex h-full cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "hover:border-primary/40 hover:bg-muted/30"}`}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleTax(tax.id)}
+                              className="mt-1 h-4 w-4 accent-primary"
+                              aria-label={`Seleccionar ${tax.descripcion}`}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-medium">{tax.descripcion}</span>
+                                {rate && <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{rate}</span>}
+                              </span>
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                Código SRI {tax.codigo_sri}
+                                {tax.clasificacion_iva ? ` · ${tax.clasificacion_iva.replaceAll("_", " ")}` : ""}
+                              </span>
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            </div>
+
+            {selectedTaxes.length > 0 && (
+              <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Seleccionados: {selectedTaxes.map((tax) => tax.descripcion).join(" · ")}
+              </div>
+            )}
           </div>
         </ConfigurationPanel>
 
