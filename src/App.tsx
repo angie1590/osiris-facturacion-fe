@@ -110,6 +110,9 @@ const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const AuditPage = lazy(() => import("@/pages/AuditPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminParamsPage = lazy(() => import("@/pages/admin/AdminParamsPage"));
+const TemporaryTaxMeasuresPage = lazy(
+  () => import("@/pages/admin/TemporaryTaxMeasuresPage"),
+);
 
 function PageLoader() {
   return (
@@ -144,6 +147,12 @@ export default function App() {
                 />
               </Route>
               <Route element={<AppLayout />}>
+                  <Route element={<RoleGuard roles={["admin"]} />}>
+                    <Route
+                      path="/admin/medidas-tributarias"
+                      element={<TemporaryTaxMeasuresPage />}
+                    />
+                  </Route>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />

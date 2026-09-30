@@ -123,6 +123,7 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   ],
   admin: [
     { type: "group", id: "admin-organizacion" },
+    { type: "item", to: "/admin/medidas-tributarias" },
     { type: "item", to: "/admin/users" },
     { type: "item", to: "/admin/params" },
   ],
@@ -457,6 +458,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Usuarios",
     icon: Users,
     roles: ["admin", "supervisor"],
+    section: "admin",
+  },
+  {
+    to: "/admin/medidas-tributarias",
+    label: "Medidas tributarias",
+    icon: ReceiptText,
+    roles: ["admin"],
     section: "admin",
   },
   {
