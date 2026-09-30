@@ -6,7 +6,7 @@
 
 ## 2. Consolidar Navegación y Contratos
 
-- [ ] 2.1 Definir el mapa único de rutas y permisos para los ocho módulos del MVP.
+- [x] 2.1 Definir el mapa único de rutas y permisos para los ocho módulos del MVP.
 - [ ] 2.2 Seleccionar componentes canónicos para productos, clientes y proveedores.
 - [ ] 2.3 Añadir redirecciones temporales y pruebas para rutas heredadas con consumidores.
 - [ ] 2.4 Centralizar tipos, hooks y manejo de errores de los endpoints canónicos.
