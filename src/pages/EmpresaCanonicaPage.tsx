@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Building2,
+  FileUp,
   FileText,
   Landmark,
   Mail,
@@ -27,11 +28,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
 import {
   buildEmpresaConfigurationStatus,
+  certificatePreviewToEmpresaForm,
+  useSriRucCertificatePreview,
   type RegimenTributario,
+  type SriRucCertificatePreview,
   type TipoContribuyenteJuridico,
 } from "@/features/empresa/hooks";
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const RUC_CERTIFICATE_MAX_BYTES = 5 * 1024 * 1024;
 
 const schema = z
   .object({
@@ -192,7 +197,12 @@ export default function EmpresaCanonicaPage() {
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [certificatePreview, setCertificatePreview] =
+    useState<SriRucCertificatePreview | null>(null);
+  const [certificateError, setCertificateError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const certificateInputRef = useRef<HTMLInputElement>(null);
+  const certificateMutation = useSriRucCertificatePreview();
 
   const empresa = useQuery({
     queryKey: ["empresa-canonica"],
@@ -404,6 +414,47 @@ export default function EmpresaCanonicaPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleCertificateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setCertificateError(null);
+    if (file.type !== "application/pdf") {
+      setCertificateError("Debe seleccionar un archivo PDF.");
+      return;
+    }
+    if (file.size > RUC_CERTIFICATE_MAX_BYTES) {
+      setCertificateError("El certificado PDF no puede superar 5 MB.");
+      return;
+    }
+    certificateMutation.mutate(file, {
+      onSuccess: setCertificatePreview,
+      onError: (error) =>
+        setCertificateError(
+          (error as { response?: { data?: { detail?: string } } }).response?.data
+            ?.detail ?? "No se pudo leer el certificado RUC.",
+        ),
+    });
+  };
+
+  const applyCertificatePreview = () => {
+    if (!certificatePreview) return;
+    const values = certificatePreviewToEmpresaForm(certificatePreview);
+    for (const [field, value] of Object.entries(values)) {
+      setValue(field as keyof FormInput, value, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    if (!certificatePreview.agente_retencion) {
+      setValue("agente_retencion_resolucion", "", { shouldDirty: true });
+    }
+    if (!certificatePreview.contribuyente_especial) {
+      setValue("contribuyente_especial_resolucion", "", { shouldDirty: true });
+    }
+    setCertificatePreview(null);
+  };
+
   if (empresa.isLoading) {
     return <Skeleton className="h-72 w-full" />;
   }
@@ -447,6 +498,40 @@ export default function EmpresaCanonicaPage() {
         {formError && (
           <Alert variant="destructive">
             <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
+
+        <ConfigurationNotice
+          variant="info"
+          title="Autocompleta con tu certificado RUC"
+          description="El PDF se procesa en memoria y no se almacena. Revisa los datos antes de aplicarlos al formulario."
+          action={
+            <>
+              <input
+                ref={certificateInputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={handleCertificateChange}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={certificateMutation.isPending}
+                onClick={() => certificateInputRef.current?.click()}
+              >
+                <FileUp className="mr-2 h-4 w-4" />
+                {certificateMutation.isPending
+                  ? "Procesando..."
+                  : "Cargar certificado SRI"}
+              </Button>
+            </>
+          }
+        />
+        {certificateError && (
+          <Alert variant="destructive">
+            <AlertDescription>{certificateError}</AlertDescription>
           </Alert>
         )}
 
@@ -801,6 +886,102 @@ export default function EmpresaCanonicaPage() {
         title="Cambios guardados"
         subtitle="La configuración de empresa se actualizó correctamente."
       />
+
+      {certificatePreview && (
+        <DetailModal
+          open
+          onClose={() => setCertificatePreview(null)}
+          title="Datos detectados en el certificado RUC"
+          subtitle="Estos datos todavía no se han guardado."
+          size="lg"
+          sections={[
+            {
+              title: "Campos aplicables",
+              fields: [
+                { label: "RUC", value: certificatePreview.ruc },
+                { label: "Razón social", value: certificatePreview.razon_social },
+                {
+                  label: "Tipo de contribuyente",
+                  value:
+                    certificatePreview.tipo_contribuyente_juridico ===
+                    "PERSONA_NATURAL"
+                      ? "Persona natural"
+                      : "Sociedad",
+                },
+                { label: "Régimen", value: certificatePreview.regimen },
+                {
+                  label: "Obligado a contabilidad",
+                  value: certificatePreview.obligado_contabilidad ? "Sí" : "No",
+                },
+                {
+                  label: "Agente de retención",
+                  value: certificatePreview.agente_retencion ? "Sí" : "No",
+                },
+                {
+                  label: "Contribuyente especial",
+                  value: certificatePreview.contribuyente_especial ? "Sí" : "No",
+                },
+                {
+                  label: "Dirección",
+                  value: certificatePreview.direccion_matriz,
+                  full: true,
+                },
+              ],
+            },
+            {
+              title: "Información adicional detectada",
+              fields: [
+                { label: "Estado", value: certificatePreview.additional.estado ?? "—" },
+                { label: "Artesano", value: certificatePreview.additional.artesano ?? "—" },
+                {
+                  label: "Ubicación",
+                  value: [
+                    certificatePreview.additional.provincia,
+                    certificatePreview.additional.canton,
+                    certificatePreview.additional.parroquia,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ") || "—",
+                },
+                {
+                  label: "Código de verificación",
+                  value: certificatePreview.additional.codigo_verificacion ?? "—",
+                },
+                {
+                  label: "Actividades",
+                  value:
+                    certificatePreview.additional.actividades_economicas.join(" · ") ||
+                    "—",
+                  full: true,
+                },
+                {
+                  label: "Obligaciones",
+                  value:
+                    certificatePreview.additional.obligaciones_tributarias.join(" · ") ||
+                    "—",
+                  full: true,
+                },
+              ],
+            },
+          ]}
+          footer={
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setCertificatePreview(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={applyCertificatePreview}>Aplicar al formulario</Button>
+            </div>
+          }
+        >
+          {certificatePreview.warnings.length > 0 && (
+            <Alert>
+              <AlertDescription>
+                {certificatePreview.warnings.join(" ")}
+              </AlertDescription>
+            </Alert>
+          )}
+        </DetailModal>
+      )}
     </div>
   );
 }

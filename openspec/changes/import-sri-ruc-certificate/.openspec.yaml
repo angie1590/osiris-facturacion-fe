@@ -1,0 +1,6 @@
+schema: spec-driven
+created: 2026-09-30
+goal: Reducir captura manual sin guardar datos no confirmados por el usuario.
+initiative:
+  store: osiris-facturacion-context
+  id: ecuador-inventory-billing-mvp

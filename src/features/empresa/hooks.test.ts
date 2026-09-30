@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildEmpresaConfigurationStatus,
+  certificatePreviewToEmpresaForm,
   type EmpresaCanonica,
+  type SriRucCertificatePreview,
 } from "@/features/empresa/hooks";
 
 function buildEmpresa(
@@ -76,5 +78,43 @@ describe("buildEmpresaConfigurationStatus", () => {
     expect(result.missingFiscalFields).toContain(
       "Resolución de agente de retención",
     );
+  });
+});
+
+describe("certificatePreviewToEmpresaForm", () => {
+  it("mapea solo campos persistibles de empresa", () => {
+    const preview: SriRucCertificatePreview = {
+      ruc: "0103523908001",
+      razon_social: "PINEDA ALVAREZ DANIEL FERNANDO",
+      tipo_contribuyente_juridico: "PERSONA_NATURAL",
+      regimen: "GENERAL",
+      obligado_contabilidad: false,
+      agente_retencion: false,
+      contribuyente_especial: false,
+      direccion_matriz: "CALLE: DE LAS HIEDRAS NÚMERO: S/N",
+      additional: {
+        estado: "ACTIVO",
+        artesano: "No registra",
+        provincia: "AZUAY",
+        canton: "CUENCA",
+        parroquia: "SAN SEBASTIAN",
+        jurisdiccion: "ZONA 6 / AZUAY / CUENCA",
+        actividades_economicas: ["G46510101 - VENTA DE COMPUTADORAS"],
+        obligaciones_tributarias: ["2011 - DECLARACION DE IVA"],
+        codigo_verificacion: "RCR1716479633455575",
+      },
+      warnings: [],
+    };
+
+    expect(certificatePreviewToEmpresaForm(preview)).toEqual({
+      ruc: "0103523908001",
+      razon_social: "PINEDA ALVAREZ DANIEL FERNANDO",
+      tipo_contribuyente_juridico: "PERSONA_NATURAL",
+      regimen: "GENERAL",
+      obligado_contabilidad: false,
+      agente_retencion: false,
+      contribuyente_especial: false,
+      direccion_matriz: "CALLE: DE LAS HIEDRAS NÚMERO: S/N",
+    });
   });
 });

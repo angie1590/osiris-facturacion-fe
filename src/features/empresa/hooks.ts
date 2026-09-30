@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 
 export type TipoContribuyenteJuridico = "PERSONA_NATURAL" | "SOCIEDAD";
@@ -32,6 +32,58 @@ export interface EmpresaCanonica {
 export interface EmpresaConfigurationStatus {
   fiscalComplete: boolean;
   missingFiscalFields: string[];
+}
+
+export interface SriRucCertificatePreview {
+  ruc: string;
+  razon_social: string;
+  tipo_contribuyente_juridico: TipoContribuyenteJuridico;
+  regimen: RegimenTributario;
+  obligado_contabilidad: boolean;
+  agente_retencion: boolean;
+  contribuyente_especial: boolean;
+  direccion_matriz: string;
+  additional: {
+    estado: string | null;
+    artesano: string | null;
+    provincia: string | null;
+    canton: string | null;
+    parroquia: string | null;
+    jurisdiccion: string | null;
+    actividades_economicas: string[];
+    obligaciones_tributarias: string[];
+    codigo_verificacion: string | null;
+  };
+  warnings: string[];
+}
+
+export function certificatePreviewToEmpresaForm(
+  preview: SriRucCertificatePreview,
+) {
+  return {
+    ruc: preview.ruc,
+    razon_social: preview.razon_social,
+    tipo_contribuyente_juridico: preview.tipo_contribuyente_juridico,
+    regimen: preview.regimen,
+    obligado_contabilidad: preview.obligado_contabilidad,
+    agente_retencion: preview.agente_retencion,
+    contribuyente_especial: preview.contribuyente_especial,
+    direccion_matriz: preview.direccion_matriz,
+  };
+}
+
+export async function previewSriRucCertificate(file: File) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post<SriRucCertificatePreview>(
+    "/empresas/importar-certificado-ruc",
+    formData,
+  );
+  return response.data;
+}
+
+export function useSriRucCertificatePreview() {
+  return useMutation({ mutationFn: previewSriRucCertificate });
 }
 
 function hasValue(value: unknown): boolean {
