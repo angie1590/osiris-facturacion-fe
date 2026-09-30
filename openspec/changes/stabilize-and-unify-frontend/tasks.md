@@ -20,10 +20,10 @@
 
 ## 4. Adaptar Imágenes de Referencia
 
-- [ ] 4.1 Catalogar cada imagen por ruta, objetivo, datos, acciones, estados y viewport.
-- [ ] 4.2 Implementar el primer recorrido aprobado con sus estados completos.
-- [ ] 4.3 Verificar visualmente escritorio y móvil con capturas Playwright.
-- [ ] 4.4 Repetir la adaptación por recorrido sin abrir rediseños transversales inconclusos.
+- [x] 4.1 Catalogar cada imagen por ruta, objetivo, datos, acciones, estados y viewport.
+- [x] 4.2 Implementar el primer recorrido aprobado con sus estados completos.
+- [x] 4.3 Verificar visualmente escritorio y móvil con capturas Playwright.
+- [x] 4.4 Repetir la adaptación por recorrido sin abrir rediseños transversales inconclusos.
 
 ## 5. Aceptación
 

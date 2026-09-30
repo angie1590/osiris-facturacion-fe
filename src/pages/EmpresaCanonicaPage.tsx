@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Save, Upload, Trash2, Building2 } from "lucide-react";
+import {
+  Building2,
+  FileText,
+  Landmark,
+  Mail,
+  MapPin,
+  ReceiptText,
+  Save,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -10,11 +20,16 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
+import { ConfigurationNotice } from "@/components/shared/ConfigurationNotice";
+import { ConfigurationPanel } from "@/components/shared/ConfigurationPanel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Section } from "@/components/shared/Section";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
-import type { RegimenTributario, TipoContribuyenteJuridico } from "@/features/empresa/hooks";
+import {
+  buildEmpresaConfigurationStatus,
+  type RegimenTributario,
+  type TipoContribuyenteJuridico,
+} from "@/features/empresa/hooks";
 
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -45,6 +60,7 @@ const schema = z
     gran_contribuyente_resolucion: z.string().trim().optional(),
     agente_retencion: z.boolean(),
     agente_retencion_resolucion: z.string().trim().optional(),
+    modo_emision: z.enum(["ELECTRONICO", "NOTA_VENTA_FISICA"]),
     direccion_matriz: z.string().trim().min(1, "Debe ingresar la dirección matriz."),
     email: z
       .string()
@@ -98,7 +114,7 @@ const schema = z
   });
 
 type Empresa = {
-  id?: string;
+  id: string;
   ruc: string;
   razon_social: string;
   nombre_comercial: string | null;
@@ -220,6 +236,7 @@ export default function EmpresaCanonicaPage() {
       gran_contribuyente_resolucion: "",
       agente_retencion: false,
       agente_retencion_resolucion: "",
+      modo_emision: "ELECTRONICO",
       direccion_matriz: "",
       email: "",
       telefono: "",
@@ -245,6 +262,10 @@ export default function EmpresaCanonicaPage() {
       gran_contribuyente_resolucion: empresa.data.gran_contribuyente_resolucion ?? "",
       agente_retencion: empresa.data.agente_retencion,
       agente_retencion_resolucion: empresa.data.agente_retencion_resolucion ?? "",
+      modo_emision:
+        empresa.data.modo_emision === "NOTA_VENTA_FISICA"
+          ? "NOTA_VENTA_FISICA"
+          : "ELECTRONICO",
       direccion_matriz: empresa.data.direccion_matriz,
       email: empresa.data.email ?? "",
       telefono: empresa.data.telefono ?? "",
@@ -276,6 +297,7 @@ export default function EmpresaCanonicaPage() {
         agente_retencion_resolucion: values.agente_retencion
           ? values.agente_retencion_resolucion || undefined
           : undefined,
+        modo_emision: values.modo_emision,
         direccion_matriz: values.direccion_matriz,
         email: values.email || undefined,
         telefono: values.telefono || undefined,
@@ -300,6 +322,8 @@ export default function EmpresaCanonicaPage() {
   });
 
   const tipoJuridico = watch("tipo_contribuyente_juridico");
+  const regimen = watch("regimen");
+  const modoEmision = watch("modo_emision");
   const regimenOptions = useMemo(
     () => {
       if (tipoJuridico === "PERSONA_NATURAL" || tipoJuridico === "SOCIEDAD") {
@@ -316,9 +340,22 @@ export default function EmpresaCanonicaPage() {
     setValue("regimen", regimenOptions[0].value, { shouldValidate: true });
   }, [regimenOptions, setValue, watch]);
 
+  useEffect(() => {
+    if (
+      regimen !== "RIMPE_NEGOCIO_POPULAR" &&
+      modoEmision === "NOTA_VENTA_FISICA"
+    ) {
+      setValue("modo_emision", "ELECTRONICO", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [modoEmision, regimen, setValue]);
+
   const contribuyenteEspecial = watch("contribuyente_especial");
   const granContribuyente = watch("gran_contribuyente");
   const agenteRetencion = watch("agente_retencion");
+  const configurationStatus = buildEmpresaConfigurationStatus(empresa.data);
 
   const matriz = useMemo(() => {
     if (!empresa.data || !sucursales.data) return null;
@@ -390,13 +427,38 @@ export default function EmpresaCanonicaPage() {
       />
 
       <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        {!configurationStatus.fiscalComplete && (
+          <ConfigurationNotice
+            title="Tu negocio aún no está configurado"
+            description={
+              <>
+                Completa {configurationStatus.missingFiscalFields.join(", ")}.
+                Sin estos datos no podrás emitir comprobantes.
+              </>
+            }
+            action={
+              <Button type="button" size="sm" onClick={() => document.getElementById("empresa-identificacion")?.scrollIntoView({ behavior: "smooth" })}>
+                Resolver
+              </Button>
+            }
+          />
+        )}
+
         {formError && (
           <Alert variant="destructive">
             <AlertDescription>{formError}</AlertDescription>
           </Alert>
         )}
 
-        <Section title="Identificación">
+        <ConfigurationPanel
+          id="empresa-identificacion"
+          title="Datos informativos del negocio"
+          description="Identificación comercial y datos registrados ante el SRI"
+          icon={Building2}
+        >
+          <p className="border-b pb-2 text-xs font-semibold uppercase text-primary">
+            Identificación
+          </p>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="RUC" required error={errors.ruc?.message}>
               <Input
@@ -448,9 +510,14 @@ export default function EmpresaCanonicaPage() {
               </select>
             </FormField>
           </div>
-        </Section>
+        </ConfigurationPanel>
 
-        <Section title="Información tributaria">
+        <ConfigurationPanel
+          title="Información tributaria"
+          description="Régimen y calificaciones tributarias del emisor"
+          icon={Landmark}
+          collapsible
+        >
           <div className="mb-4 rounded-md border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-900">
             La información tributaria debe coincidir con los datos registrados
             ante el Servicio de Rentas Internas.
@@ -460,7 +527,7 @@ export default function EmpresaCanonicaPage() {
             <FormField label="Régimen tributario" required error={errors.regimen?.message}>
               <select
                 className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
-                value={watch("regimen")}
+                value={regimen}
                 onChange={(event) =>
                   setValue("regimen", event.target.value as RegimenTributario, {
                     shouldValidate: true,
@@ -580,20 +647,18 @@ export default function EmpresaCanonicaPage() {
               )}
             </div>
           </div>
-        </Section>
+        </ConfigurationPanel>
 
-        <Section title="Domicilio fiscal">
+        <ConfigurationPanel title="Ubicación y contacto" icon={MapPin}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
             label="Dirección matriz"
             required
             error={errors.direccion_matriz?.message}
+            className="md:col-span-2"
           >
             <Input {...register("direccion_matriz")} />
           </FormField>
-        </Section>
-
-        <Section title="Contacto">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Correo electrónico" error={errors.email?.message}>
               <Input {...register("email")} />
             </FormField>
@@ -610,9 +675,14 @@ export default function EmpresaCanonicaPage() {
               />
             </FormField>
           </div>
-        </Section>
+        </ConfigurationPanel>
 
-        <Section title="Identidad comercial">
+        <ConfigurationPanel
+          title="Identidad comercial"
+          description="Logo utilizado en comprobantes y documentos impresos"
+          icon={Mail}
+          collapsible
+        >
           <div className="space-y-4">
             {logoPreview ? (
               <img
@@ -653,9 +723,58 @@ export default function EmpresaCanonicaPage() {
               Formatos permitidos: PNG, JPG, WEBP, SVG. Tamaño máximo: 2 MB.
             </p>
           </div>
-        </Section>
+        </ConfigurationPanel>
 
-        <Section title="Establecimiento matriz">
+        <ConfigurationPanel
+          title="Opciones para la facturación"
+          description="Modo autorizado para emitir comprobantes"
+          icon={ReceiptText}
+          collapsible
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Modo de emisión" required>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={modoEmision}
+                onChange={(event) =>
+                  setValue(
+                    "modo_emision",
+                    event.target.value as FormData["modo_emision"],
+                    { shouldDirty: true, shouldValidate: true },
+                  )
+                }
+              >
+                <option value="ELECTRONICO">Comprobantes electrónicos</option>
+                {regimen === "RIMPE_NEGOCIO_POPULAR" && (
+                  <option value="NOTA_VENTA_FISICA">Nota de venta física</option>
+                )}
+              </select>
+            </FormField>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">Configuración relacionada</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button asChild type="button" size="sm" variant="outline">
+                  <Link to="/configuracion-operativa">Puntos y secuenciales</Link>
+                </Button>
+                <Button asChild type="button" size="sm" variant="outline">
+                  <Link to="/impuestos">Catálogo de impuestos</Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+          <ConfigurationNotice
+            variant="info"
+            title="Opciones comerciales pendientes"
+            description="Precio editable, reembolso de gastos y propinas requieren reglas de negocio antes de habilitarse."
+          />
+        </ConfigurationPanel>
+
+        <ConfigurationPanel
+          title="Establecimiento matriz"
+          description="Sucursal principal asociada al emisor"
+          icon={FileText}
+          collapsible
+        >
           {sucursales.isLoading ? (
             <Skeleton className="h-12 w-full" />
           ) : matriz ? (
@@ -673,7 +792,7 @@ export default function EmpresaCanonicaPage() {
           <Button asChild className="mt-3" variant="outline">
             <Link to="/configuracion-operativa">Ver sucursales y puntos de emisión</Link>
           </Button>
-        </Section>
+        </ConfigurationPanel>
       </form>
 
       <DetailModal

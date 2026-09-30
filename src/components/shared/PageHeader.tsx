@@ -21,12 +21,14 @@ export function PageHeader({
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {title}
         </h1>
         {actions && (
-          <div className="flex items-center gap-2 shrink-0">{actions}</div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+            {actions}
+          </div>
         )}
       </div>
       {description && (

@@ -255,7 +255,7 @@ export function Topbar({
             </span>
             <Badge
               variant="secondary"
-              className="border border-cyan-700/50 bg-cyan-900/40 text-cyan-50"
+              className="hidden border border-cyan-700/50 bg-cyan-900/40 text-cyan-50 sm:inline-flex"
             >
               {ROLE_LABELS[role ?? ""] ?? role}
             </Badge>
