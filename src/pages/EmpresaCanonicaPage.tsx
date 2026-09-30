@@ -25,6 +25,7 @@ import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 import { ConfigurationNotice } from "@/components/shared/ConfigurationNotice";
 import { ConfigurationPanel } from "@/components/shared/ConfigurationPanel";
+import { TablePagination } from "@/components/shared/TablePagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
@@ -184,8 +185,9 @@ type ImpuestoCatalogo = {
 const TAX_TYPES = [
   { value: "IVA", label: "IVA", description: "Tarifas y clasificación de IVA" },
   { value: "ICE", label: "ICE", description: "Impuesto a consumos especiales" },
-  { value: "IRBPNR", label: "IRBPNR", description: "Impuesto redimible a las botellas plásticas" },
 ] as const;
+
+const ICE_PAGE_SIZE = 6;
 
 type Sucursal = {
   id: string;
@@ -253,6 +255,7 @@ export default function EmpresaCanonicaPage() {
   const [signatureError, setSignatureError] = useState<string | null>(null);
   const [taxType, setTaxType] = useState<string>("IVA");
   const [taxSearch, setTaxSearch] = useState("");
+  const [icePage, setIcePage] = useState(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certificateInputRef = useRef<HTMLInputElement>(null);
   const certificateMutation = useSriRucCertificatePreview();
@@ -507,6 +510,18 @@ export default function EmpresaCanonicaPage() {
         .includes(normalizedSearch);
     });
   }, [impuestos.data, taxSearch, taxType]);
+
+  const displayedTaxes = useMemo(() => {
+    if (taxType !== "ICE") return visibleTaxes;
+    const start = (icePage - 1) * ICE_PAGE_SIZE;
+    return visibleTaxes.slice(start, start + ICE_PAGE_SIZE);
+  }, [icePage, taxType, visibleTaxes]);
+
+  const iceTotalPages = Math.max(1, Math.ceil(visibleTaxes.length / ICE_PAGE_SIZE));
+
+  useEffect(() => {
+    if (icePage > iceTotalPages) setIcePage(iceTotalPages);
+  }, [icePage, iceTotalPages]);
 
   const selectedTaxes = (impuestos.data ?? []).filter((tax) =>
     selectedTaxIds.includes(tax.id),
@@ -848,6 +863,7 @@ export default function EmpresaCanonicaPage() {
                       onClick={() => {
                         setTaxType(type.value);
                         setTaxSearch("");
+                        setIcePage(1);
                       }}
                       className={`flex min-w-32 items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors lg:min-w-0 ${
                         active
@@ -877,7 +893,10 @@ export default function EmpresaCanonicaPage() {
                     <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       value={taxSearch}
-                      onChange={(event) => setTaxSearch(event.target.value)}
+                      onChange={(event) => {
+                        setTaxSearch(event.target.value);
+                        setIcePage(1);
+                      }}
                       placeholder={`Buscar ${taxType}...`}
                       aria-label={`Buscar opciones de ${taxType}`}
                       className="pl-9"
@@ -907,7 +926,7 @@ export default function EmpresaCanonicaPage() {
                   </div>
                 ) : (
                   <ul className={`grid gap-2 ${taxType === "IVA" ? "sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1"}`}>
-                    {visibleTaxes.map((tax) => {
+                    {displayedTaxes.map((tax) => {
                       const selected = selectedTaxIds.includes(tax.id);
                       const rate = tax.tipo_impuesto === "IVA"
                         ? tax.porcentaje_iva != null ? `${tax.porcentaje_iva}%` : null
@@ -941,6 +960,17 @@ export default function EmpresaCanonicaPage() {
                       );
                     })}
                   </ul>
+                )}
+                {taxType === "ICE" && visibleTaxes.length > ICE_PAGE_SIZE && (
+                  <TablePagination
+                    page={icePage}
+                    pageSize={ICE_PAGE_SIZE}
+                    total={visibleTaxes.length}
+                    totalPages={iceTotalPages}
+                    onPageChange={setIcePage}
+                    itemLabel="impuestos ICE"
+                    className="mt-3 border-t pt-3"
+                  />
                 )}
               </section>
             </div>
