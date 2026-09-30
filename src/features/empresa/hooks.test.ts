@@ -23,12 +23,17 @@ function buildEmpresa(
     gran_contribuyente_resolucion: null,
     agente_retencion: false,
     agente_retencion_resolucion: null,
+    artesano_calificado: false,
+    impuesto_catalogo_ids: [],
     direccion_matriz: "Av. Principal",
     email: null,
     telefono: null,
     logo: null,
     modo_emision: "ELECTRONICO",
     tipo_contribuyente_id: "01",
+    firma_electronica_configurada: false,
+    firma_nombre_archivo: null,
+    firma_caduca_en: null,
     ...overrides,
   };
 }
@@ -92,6 +97,9 @@ describe("certificatePreviewToEmpresaForm", () => {
       agente_retencion: false,
       contribuyente_especial: false,
       direccion_matriz: "CALLE: DE LAS HIEDRAS NÚMERO: S/N",
+      email: null,
+      telefono: null,
+      artesano_calificado: false,
       additional: {
         estado: "ACTIVO",
         artesano: "No registra",
@@ -115,6 +123,41 @@ describe("certificatePreviewToEmpresaForm", () => {
       agente_retencion: false,
       contribuyente_especial: false,
       direccion_matriz: "CALLE: DE LAS HIEDRAS NÚMERO: S/N",
+      artesano_calificado: false,
+    });
+  });
+
+  it("incluye email y teléfono solo cuando el certificado los contiene", () => {
+    const preview: SriRucCertificatePreview = {
+      ruc: "0103523908001",
+      razon_social: "PINEDA ALVAREZ DANIEL FERNANDO",
+      tipo_contribuyente_juridico: "PERSONA_NATURAL",
+      regimen: "GENERAL",
+      obligado_contabilidad: false,
+      agente_retencion: false,
+      contribuyente_especial: false,
+      direccion_matriz: "CALLE: DE LAS HIEDRAS NÚMERO: S/N",
+      email: "contacto@ejemplo.ec",
+      telefono: "0991234567",
+      artesano_calificado: true,
+      additional: {
+        estado: "ACTIVO",
+        artesano: "CALIFICADO",
+        provincia: null,
+        canton: null,
+        parroquia: null,
+        jurisdiccion: null,
+        actividades_economicas: [],
+        obligaciones_tributarias: [],
+        codigo_verificacion: null,
+      },
+      warnings: [],
+    };
+
+    expect(certificatePreviewToEmpresaForm(preview)).toMatchObject({
+      email: "contacto@ejemplo.ec",
+      telefono: "0991234567",
+      artesano_calificado: true,
     });
   });
 });

@@ -21,12 +21,17 @@ export interface EmpresaCanonica {
   gran_contribuyente_resolucion: string | null;
   agente_retencion: boolean;
   agente_retencion_resolucion: string | null;
+  artesano_calificado: boolean;
+  impuesto_catalogo_ids: string[];
   direccion_matriz: string;
   email: string | null;
   telefono: string | null;
   logo: string | null;
   modo_emision: string;
   tipo_contribuyente_id: string;
+  firma_electronica_configurada: boolean;
+  firma_nombre_archivo: string | null;
+  firma_caduca_en: string | null;
 }
 
 export interface EmpresaConfigurationStatus {
@@ -43,6 +48,9 @@ export interface SriRucCertificatePreview {
   agente_retencion: boolean;
   contribuyente_especial: boolean;
   direccion_matriz: string;
+  email: string | null;
+  telefono: string | null;
+  artesano_calificado: boolean;
   additional: {
     estado: string | null;
     artesano: string | null;
@@ -69,7 +77,33 @@ export function certificatePreviewToEmpresaForm(
     agente_retencion: preview.agente_retencion,
     contribuyente_especial: preview.contribuyente_especial,
     direccion_matriz: preview.direccion_matriz,
+    artesano_calificado: preview.artesano_calificado,
+    ...(preview.email ? { email: preview.email } : {}),
+    ...(preview.telefono ? { telefono: preview.telefono } : {}),
   };
+}
+
+export async function uploadEmpresaSignature(
+  empresaId: string,
+  file: File,
+  password: string,
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("password", password);
+  const response = await api.post<EmpresaCanonica>(
+    `/empresas/${empresaId}/firma-electronica`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  return response.data;
+}
+
+export async function deleteEmpresaSignature(empresaId: string) {
+  const response = await api.delete<EmpresaCanonica>(
+    `/empresas/${empresaId}/firma-electronica`,
+  );
+  return response.data;
 }
 
 export async function previewSriRucCertificate(file: File) {

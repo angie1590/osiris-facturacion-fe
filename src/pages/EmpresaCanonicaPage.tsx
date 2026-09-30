@@ -5,6 +5,7 @@ import {
   FileUp,
   FileText,
   Landmark,
+  KeyRound,
   Mail,
   MapPin,
   ReceiptText,
@@ -23,6 +24,7 @@ import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 import { ConfigurationNotice } from "@/components/shared/ConfigurationNotice";
 import { ConfigurationPanel } from "@/components/shared/ConfigurationPanel";
+import { DataTable, type Column } from "@/components/shared/DataTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
@@ -30,6 +32,8 @@ import { getApiErrorMessage } from "@/lib/api-error";
 import {
   buildEmpresaConfigurationStatus,
   certificatePreviewToEmpresaForm,
+  deleteEmpresaSignature,
+  uploadEmpresaSignature,
   useSriRucCertificatePreview,
   type RegimenTributario,
   type SriRucCertificatePreview,
@@ -66,6 +70,8 @@ const schema = z
     gran_contribuyente_resolucion: z.string().trim().optional(),
     agente_retencion: z.boolean(),
     agente_retencion_resolucion: z.string().trim().optional(),
+    artesano_calificado: z.boolean(),
+    impuesto_catalogo_ids: z.array(z.string()),
     modo_emision: z.enum(["ELECTRONICO", "NOTA_VENTA_FISICA"]),
     direccion_matriz: z.string().trim().min(1, "Debe ingresar la dirección matriz."),
     email: z
@@ -117,6 +123,23 @@ const schema = z
         message: "El número de resolución es obligatorio para un agente de retención.",
       });
     }
+
+    const puedeEmitirNotaVenta =
+      value.regimen === "RIMPE_NEGOCIO_POPULAR" || value.artesano_calificado;
+    if (puedeEmitirNotaVenta && value.modo_emision !== "NOTA_VENTA_FISICA") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["modo_emision"],
+        message: "RIMPE Negocio Popular y artesanos calificados deben usar nota de venta física.",
+      });
+    }
+    if (!puedeEmitirNotaVenta && value.modo_emision === "NOTA_VENTA_FISICA") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["modo_emision"],
+        message: "La nota de venta física solo está permitida para RIMPE Negocio Popular o artesanos calificados.",
+      });
+    }
   });
 
 type Empresa = {
@@ -133,12 +156,26 @@ type Empresa = {
   gran_contribuyente_resolucion: string | null;
   agente_retencion: boolean;
   agente_retencion_resolucion: string | null;
+  artesano_calificado: boolean;
+  impuesto_catalogo_ids: string[];
   direccion_matriz: string;
   email: string | null;
   telefono: string | null;
   logo: string | null;
   modo_emision: string;
   tipo_contribuyente_id: string;
+  firma_electronica_configurada: boolean;
+  firma_nombre_archivo: string | null;
+  firma_caduca_en: string | null;
+};
+
+type ImpuestoCatalogo = {
+  id: string;
+  tipo_impuesto: string;
+  codigo_sri: string;
+  descripcion: string;
+  porcentaje_iva: string | null;
+  activo: boolean;
 };
 
 type Sucursal = {
@@ -201,9 +238,14 @@ export default function EmpresaCanonicaPage() {
   const [certificatePreview, setCertificatePreview] =
     useState<SriRucCertificatePreview | null>(null);
   const [certificateError, setCertificateError] = useState<string | null>(null);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signaturePassword, setSignaturePassword] = useState("");
+  const [signaturePasswordConfirmation, setSignaturePasswordConfirmation] = useState("");
+  const [signatureError, setSignatureError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const certificateInputRef = useRef<HTMLInputElement>(null);
   const certificateMutation = useSriRucCertificatePreview();
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const empresa = useQuery({
     queryKey: ["empresa-canonica"],
@@ -223,6 +265,12 @@ export default function EmpresaCanonicaPage() {
       });
       return response.data.items;
     },
+  });
+
+  const impuestos = useQuery({
+    queryKey: ["impuestos-canonicos"],
+    queryFn: async () =>
+      (await api.get<ImpuestoCatalogo[]>("/impuestos/activos-vigentes")).data,
   });
 
   const {
@@ -247,6 +295,8 @@ export default function EmpresaCanonicaPage() {
       gran_contribuyente_resolucion: "",
       agente_retencion: false,
       agente_retencion_resolucion: "",
+      artesano_calificado: false,
+      impuesto_catalogo_ids: [],
       modo_emision: "ELECTRONICO",
       direccion_matriz: "",
       email: "",
@@ -273,6 +323,8 @@ export default function EmpresaCanonicaPage() {
       gran_contribuyente_resolucion: empresa.data.gran_contribuyente_resolucion ?? "",
       agente_retencion: empresa.data.agente_retencion,
       agente_retencion_resolucion: empresa.data.agente_retencion_resolucion ?? "",
+      artesano_calificado: empresa.data.artesano_calificado,
+      impuesto_catalogo_ids: empresa.data.impuesto_catalogo_ids ?? [],
       modo_emision:
         empresa.data.modo_emision === "NOTA_VENTA_FISICA"
           ? "NOTA_VENTA_FISICA"
@@ -308,6 +360,8 @@ export default function EmpresaCanonicaPage() {
         agente_retencion_resolucion: values.agente_retencion
           ? values.agente_retencion_resolucion || undefined
           : undefined,
+        artesano_calificado: values.artesano_calificado,
+        impuesto_catalogo_ids: values.impuesto_catalogo_ids,
         modo_emision: values.modo_emision,
         direccion_matriz: values.direccion_matriz,
         email: values.email || undefined,
@@ -335,6 +389,9 @@ export default function EmpresaCanonicaPage() {
   const tipoJuridico = watch("tipo_contribuyente_juridico");
   const regimen = watch("regimen");
   const modoEmision = watch("modo_emision");
+  const artesanoCalificado = watch("artesano_calificado");
+  const selectedTaxIds = watch("impuesto_catalogo_ids");
+  const puedeEmitirNotaVenta = regimen === "RIMPE_NEGOCIO_POPULAR" || artesanoCalificado;
   const regimenOptions = useMemo(
     () => {
       if (tipoJuridico === "PERSONA_NATURAL" || tipoJuridico === "SOCIEDAD") {
@@ -352,16 +409,19 @@ export default function EmpresaCanonicaPage() {
   }, [regimenOptions, setValue, watch]);
 
   useEffect(() => {
-    if (
-      regimen !== "RIMPE_NEGOCIO_POPULAR" &&
-      modoEmision === "NOTA_VENTA_FISICA"
-    ) {
+    if (puedeEmitirNotaVenta && modoEmision !== "NOTA_VENTA_FISICA") {
+      setValue("modo_emision", "NOTA_VENTA_FISICA", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    if (!puedeEmitirNotaVenta && modoEmision === "NOTA_VENTA_FISICA") {
       setValue("modo_emision", "ELECTRONICO", {
         shouldDirty: true,
         shouldValidate: true,
       });
     }
-  }, [modoEmision, regimen, setValue]);
+  }, [modoEmision, puedeEmitirNotaVenta, setValue]);
 
   const contribuyenteEspecial = watch("contribuyente_especial");
   const granContribuyente = watch("gran_contribuyente");
@@ -389,6 +449,75 @@ export default function EmpresaCanonicaPage() {
       );
     }
   };
+
+  const signatureUploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!empresa.data?.id || !signatureFile) {
+        throw new Error("Guarda primero la empresa y selecciona un archivo P12.");
+      }
+      if (signaturePassword !== signaturePasswordConfirmation) {
+        throw new Error("Las contraseñas de la firma no coinciden.");
+      }
+      return uploadEmpresaSignature(empresa.data.id, signatureFile, signaturePassword);
+    },
+    onSuccess: (updatedEmpresa) => {
+      queryClient.setQueryData(["empresa-canonica"], updatedEmpresa);
+      queryClient.invalidateQueries({ queryKey: ["empresa-canonica"] });
+      setSignatureFile(null);
+      setSignaturePassword("");
+      setSignaturePasswordConfirmation("");
+      setSignatureError(null);
+      if (signatureInputRef.current) signatureInputRef.current.value = "";
+    },
+    onError: (error) =>
+      setSignatureError(getApiErrorMessage(error, "No se pudo validar la firma electrónica.")),
+  });
+
+  const signatureDeleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!empresa.data?.id) throw new Error("No se encontró la empresa.");
+      return deleteEmpresaSignature(empresa.data.id);
+    },
+    onSuccess: (updatedEmpresa) => {
+      queryClient.setQueryData(["empresa-canonica"], updatedEmpresa);
+      queryClient.invalidateQueries({ queryKey: ["empresa-canonica"] });
+    },
+    onError: (error) =>
+      setSignatureError(getApiErrorMessage(error, "No se pudo eliminar la firma electrónica.")),
+  });
+
+  const taxColumns: Column<ImpuestoCatalogo>[] = [
+    {
+      key: "seleccion",
+      header: "Activo para la empresa",
+      className: "w-32",
+      cell: (row) => (
+        <input
+          type="checkbox"
+          aria-label={`Usar ${row.descripcion}`}
+          checked={selectedTaxIds.includes(row.id)}
+          onChange={(event) => {
+            const next = event.target.checked
+              ? [...selectedTaxIds, row.id]
+              : selectedTaxIds.filter((id) => id !== row.id);
+            setValue("impuesto_catalogo_ids", next, { shouldDirty: true });
+          }}
+        />
+      ),
+    },
+    { key: "tipo", header: "Tipo", cell: (row) => row.tipo_impuesto },
+    { key: "codigo", header: "Código SRI", cell: (row) => row.codigo_sri },
+    {
+      key: "descripcion",
+      header: "Impuesto vigente",
+      cell: (row) => row.descripcion,
+    },
+    {
+      key: "porcentaje",
+      header: "Tarifa",
+      cell: (row) => (row.porcentaje_iva ? `${row.porcentaje_iva}%` : "—"),
+    },
+  ];
 
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -628,109 +757,86 @@ export default function EmpresaCanonicaPage() {
               </select>
             </FormField>
 
-            <label className="flex items-center gap-2 pt-8 text-sm">
-              <input type="checkbox" {...register("obligado_contabilidad")} />
-              Obligado a llevar contabilidad
-            </label>
-
-            <div className="md:col-span-2 rounded-md border border-border p-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
+            <div className="grid grid-cols-2 gap-2 md:col-span-2 sm:grid-cols-3 lg:grid-cols-5">
+              <label className="flex min-h-12 items-center gap-2 rounded-md border p-3 text-sm">
+                <input type="checkbox" {...register("obligado_contabilidad")} />
+                Obligado a llevar contabilidad
+              </label>
+              <label className="flex min-h-12 items-center gap-2 rounded-md border p-3 text-sm">
                 <input
                   type="checkbox"
                   {...register("contribuyente_especial")}
                   onChange={(event) => {
-                    setValue("contribuyente_especial", event.target.checked, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    });
-                    if (!event.target.checked) {
-                      setValue("contribuyente_especial_resolucion", "", {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }
+                    setValue("contribuyente_especial", event.target.checked, { shouldValidate: true, shouldDirty: true });
+                    if (!event.target.checked) setValue("contribuyente_especial_resolucion", "", { shouldDirty: true });
                   }}
                 />
                 Contribuyente especial
               </label>
-              {contribuyenteEspecial && (
-                <div className="mt-3 max-w-md">
-                  <FormField
-                    label="Número de resolución"
-                    required
-                    error={errors.contribuyente_especial_resolucion?.message}
-                  >
-                    <Input {...register("contribuyente_especial_resolucion")} />
-                  </FormField>
-                </div>
-              )}
-            </div>
-
-            <div className="md:col-span-2 rounded-md border border-border p-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label className="flex min-h-12 items-center gap-2 rounded-md border p-3 text-sm">
                 <input
                   type="checkbox"
                   {...register("gran_contribuyente")}
                   onChange={(event) => {
-                    setValue("gran_contribuyente", event.target.checked, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    });
-                    if (!event.target.checked) {
-                      setValue("gran_contribuyente_resolucion", "", {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }
+                    setValue("gran_contribuyente", event.target.checked, { shouldValidate: true, shouldDirty: true });
+                    if (!event.target.checked) setValue("gran_contribuyente_resolucion", "", { shouldDirty: true });
                   }}
                 />
                 Gran contribuyente
               </label>
-              {granContribuyente && (
-                <div className="mt-3 max-w-md">
-                  <FormField
-                    label="Número de resolución"
-                    required
-                    error={errors.gran_contribuyente_resolucion?.message}
-                  >
-                    <Input {...register("gran_contribuyente_resolucion")} />
-                  </FormField>
-                </div>
-              )}
-            </div>
-
-            <div className="md:col-span-2 rounded-md border border-border p-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
+              <label className="flex min-h-12 items-center gap-2 rounded-md border p-3 text-sm">
                 <input
                   type="checkbox"
                   {...register("agente_retencion")}
                   onChange={(event) => {
-                    setValue("agente_retencion", event.target.checked, {
-                      shouldValidate: true,
-                      shouldDirty: true,
-                    });
-                    if (!event.target.checked) {
-                      setValue("agente_retencion_resolucion", "", {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }
+                    setValue("agente_retencion", event.target.checked, { shouldValidate: true, shouldDirty: true });
+                    if (!event.target.checked) setValue("agente_retencion_resolucion", "", { shouldDirty: true });
                   }}
                 />
                 Agente de retención
               </label>
-              {agenteRetencion && (
-                <div className="mt-3 max-w-md">
-                  <FormField
-                    label="Número de resolución"
-                    required
-                    error={errors.agente_retencion_resolucion?.message}
-                  >
-                    <Input {...register("agente_retencion_resolucion")} />
-                  </FormField>
-                </div>
-              )}
+              <label className="flex min-h-12 items-center gap-2 rounded-md border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  {...register("artesano_calificado")}
+                  onChange={(event) => setValue("artesano_calificado", event.target.checked, { shouldValidate: true, shouldDirty: true })}
+                />
+                Artesano calificado
+              </label>
             </div>
+
+            {contribuyenteEspecial && (
+              <FormField label="Resolución de contribuyente especial" required error={errors.contribuyente_especial_resolucion?.message}>
+                <Input {...register("contribuyente_especial_resolucion")} />
+              </FormField>
+            )}
+            {granContribuyente && (
+              <FormField label="Resolución de gran contribuyente" required error={errors.gran_contribuyente_resolucion?.message}>
+                <Input {...register("gran_contribuyente_resolucion")} />
+              </FormField>
+            )}
+            {agenteRetencion && (
+              <FormField label="Resolución de agente de retención" required error={errors.agente_retencion_resolucion?.message}>
+                <Input {...register("agente_retencion_resolucion")} />
+              </FormField>
+            )}
+          </div>
+
+          <div className="mt-6 space-y-3 border-t pt-5">
+            <div>
+              <h3 className="text-sm font-semibold">Impuestos aplicables a la empresa</h3>
+              <p className="text-xs text-muted-foreground">Selecciona los impuestos vigentes del catálogo SRI que aplican al emisor. Esto no modifica los impuestos configurados por producto.</p>
+            </div>
+            <DataTable
+              columns={taxColumns}
+              data={impuestos.data ?? []}
+              rowKey={(row) => row.id}
+              isLoading={impuestos.isLoading}
+              isError={impuestos.isError}
+              onRetry={impuestos.refetch}
+              emptyHeading="No hay impuestos vigentes"
+              emptyDescription="El catálogo vigente del SRI aparecerá aquí."
+            />
           </div>
         </ConfigurationPanel>
 
@@ -830,7 +936,7 @@ export default function EmpresaCanonicaPage() {
                 }
               >
                 <option value="ELECTRONICO">Comprobantes electrónicos</option>
-                {regimen === "RIMPE_NEGOCIO_POPULAR" && (
+                {puedeEmitirNotaVenta && (
                   <option value="NOTA_VENTA_FISICA">Nota de venta física</option>
                 )}
               </select>
@@ -847,12 +953,102 @@ export default function EmpresaCanonicaPage() {
               </div>
             </div>
           </div>
-          <ConfigurationNotice
-            variant="info"
-            title="Opciones comerciales pendientes"
-            description="Precio editable, reembolso de gastos y propinas requieren reglas de negocio antes de habilitarse."
-          />
         </ConfigurationPanel>
+
+        {modoEmision === "ELECTRONICO" && (
+          <ConfigurationPanel
+            title="Firma electrónica"
+            description="Certificado requerido para emitir comprobantes electrónicos. Se valida y cifra en el servidor; la contraseña no se guarda en el formulario."
+            icon={KeyRound}
+            collapsible
+          >
+            {empresa.data?.firma_electronica_configurada ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                <div>
+                  <p className="font-medium">Firma electrónica configurada</p>
+                  <p>{empresa.data.firma_nombre_archivo ?? "Certificado empresarial"}</p>
+                  <p className="text-xs">Caduca: {empresa.data.firma_caduca_en ? new Date(empresa.data.firma_caduca_en).toLocaleDateString("es-EC") : "Fecha no disponible"}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={signatureDeleteMutation.isPending}
+                  onClick={() => signatureDeleteMutation.mutate()}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar firma
+                </Button>
+              </div>
+            ) : (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Falta la firma electrónica. Guarda primero la empresa y carga un certificado vigente antes de encolar facturas electrónicas.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {signatureError && (
+              <Alert className="mt-3" variant="destructive">
+                <AlertDescription>{signatureError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <FormField label="Archivo de firma (.p12 / .pfx)" required>
+                <Input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept=".p12,.pfx,application/x-pkcs12"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setSignatureError(null);
+                    if (file && file.size > 5 * 1024 * 1024) {
+                      setSignatureError("La firma electrónica no puede superar 5 MB.");
+                      event.target.value = "";
+                      setSignatureFile(null);
+                      return;
+                    }
+                    setSignatureFile(file);
+                  }}
+                />
+              </FormField>
+              <FormField label="Contraseña de la firma" required>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={signaturePassword}
+                  onChange={(event) => setSignaturePassword(event.target.value)}
+                />
+              </FormField>
+              <FormField label="Confirmar contraseña" required>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={signaturePasswordConfirmation}
+                  onChange={(event) => setSignaturePasswordConfirmation(event.target.value)}
+                />
+              </FormField>
+            </div>
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={
+                !empresa.data?.id ||
+                !signatureFile ||
+                !signaturePassword ||
+                !signaturePasswordConfirmation ||
+                signatureUploadMutation.isPending
+              }
+              onClick={() => signatureUploadMutation.mutate()}
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              {signatureUploadMutation.isPending ? "Validando firma..." : "Validar y guardar firma"}
+            </Button>
+            {!empresa.data?.id && (
+              <p className="mt-2 text-xs text-muted-foreground">Guarda la empresa antes de cargar el certificado.</p>
+            )}
+          </ConfigurationPanel>
+        )}
 
         <ConfigurationPanel
           title="Establecimiento matriz"
