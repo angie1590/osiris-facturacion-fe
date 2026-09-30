@@ -1,0 +1,18 @@
+schema: spec-driven
+
+context: |
+  Stack: React 19, TypeScript, React Router, React Query, Vite, Tailwind y Vitest.
+  Dominio: interfaz de inventario y facturación electrónica para Ecuador.
+  El backend es la autoridad de reglas tributarias, permisos, estados y cálculos.
+  Validación: npm test, npm run lint y npm run build.
+
+rules:
+  proposal:
+    - Identificar rutas, roles y recorridos afectados.
+    - Evitar crear una segunda interfaz visible para una tarea existente.
+  specs:
+    - Definir carga, vacío, error, permisos y comportamiento responsive.
+    - Priorizar nombres legibles sobre IDs en la interfaz.
+  tasks:
+    - Adaptar imágenes por recorridos completos, no por componentes aislados.
+    - Incluir pruebas y build como criterios de cierre.

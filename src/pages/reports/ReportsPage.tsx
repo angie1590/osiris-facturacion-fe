@@ -1352,7 +1352,7 @@ function StockValorizadoReport({
   const sortedItems = useMemo(() => {
     const items = [...(data?.items ?? [])];
     items.sort((a, b) => {
-      const cmp = compareValue((a as any)[sortBy], (b as any)[sortBy]);
+      const cmp = compareValue(a[sortBy], b[sortBy]);
       return sortDirection === "asc" ? cmp : -cmp;
     });
     return items;
@@ -1566,7 +1566,7 @@ function KardexReport({
   const sortedEntries = useMemo(() => {
     const list = [...(kardex?.entries ?? [])];
     list.sort((a, b) => {
-      const cmp = compareValue((a as any)[sortBy], (b as any)[sortBy]);
+      const cmp = compareValue(a[sortBy], b[sortBy]);
       return sortDirection === "asc" ? cmp : -cmp;
     });
     return list;
@@ -1758,7 +1758,7 @@ function KardexReport({
 }
 
 // ─── Movimientos por usuario ──────────────────────────────────────────────────
-function MovimientosPorUsuarioReport({}: {}) {
+function MovimientosPorUsuarioReport() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [range, setRange] = useState<DateRange>(currentMonthRange());
@@ -1823,7 +1823,7 @@ function MovimientosPorUsuarioReport({}: {}) {
   const sortedRows = useMemo(() => {
     const list = [...(rows ?? [])];
     list.sort((a, b) => {
-      const cmp = compareValue((a as any)[sortBy], (b as any)[sortBy]);
+      const cmp = compareValue(a[sortBy], b[sortBy]);
       return sortDirection === "asc" ? cmp : -cmp;
     });
     return list;
@@ -2566,7 +2566,10 @@ function VentasReport() {
     commission_percent: 0,
     commission_total: 0,
   };
-  const dailyClosings = data?.daily_closings ?? [];
+  const dailyClosings = useMemo(
+    () => data?.daily_closings ?? [],
+    [data?.daily_closings],
+  );
 function currentYearRange(): DateRange {
   const now = new Date();
   const from = new Date(now.getFullYear(), 0, 1);
@@ -2981,7 +2984,10 @@ function VentasReport() {
     commission_percent: 0,
     commission_total: 0,
   };
-  const dailyClosings = data?.daily_closings ?? [];
+  const dailyClosings = useMemo(
+    () => data?.daily_closings ?? [],
+    [data?.daily_closings],
+  );
   const salesBySeller = data?.sales_by_seller ?? [];
   const commissionsByMonth = data?.commissions_by_month ?? [];
 
@@ -3273,9 +3279,18 @@ function VendedoresDashboardReport() {
       ),
     [data?.sales_by_seller],
   );
-  const commissionsByMonth = data?.commissions_by_month ?? [];
-  const monthlySales = data?.monthly_sales ?? [];
-  const quarterlySummary = data?.quarterly_summary ?? [];
+  const commissionsByMonth = useMemo(
+    () => data?.commissions_by_month ?? [],
+    [data?.commissions_by_month],
+  );
+  const monthlySales = useMemo(
+    () => data?.monthly_sales ?? [],
+    [data?.monthly_sales],
+  );
+  const quarterlySummary = useMemo(
+    () => data?.quarterly_summary ?? [],
+    [data?.quarterly_summary],
+  );
 
   const monthlySalesChartData = useMemo(
     () =>
@@ -3649,7 +3664,7 @@ function VendedoresDashboardReport() {
                               {formatQuantity(row.products_sold, "decimal")}
                             </TableCell>
                             <TableCell
-                              className="whitespace-normal break-words leading-tight align-middle"
+                              className="whitespace-normal wrap-break-word leading-tight align-middle"
                               title={row.top_product_name}
                             >
                               {row.top_product_name} (

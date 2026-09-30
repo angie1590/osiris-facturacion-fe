@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { DocumentLinesEditor } from "./DocumentLinesEditor";
+import {
+  DocumentLinesEditor,
+  type DocumentLine,
+} from "./DocumentLinesEditor";
 
 const mockUseProducts = vi.fn();
 
@@ -20,7 +23,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 function TestHarness() {
-  const [lines, setLines] = useState<any[]>([]);
+  const [lines, setLines] = useState<DocumentLine[]>([]);
 
   return (
     <QueryClientProvider

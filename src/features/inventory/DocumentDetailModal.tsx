@@ -273,7 +273,6 @@ export function DocumentDetailModal({
   onClose,
   showCost,
   showPrice,
-  manageHref: _manageHref,
 }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();

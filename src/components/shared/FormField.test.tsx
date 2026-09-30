@@ -19,6 +19,11 @@ describe('FormField', () => {
     expect(screen.queryByText('*')).not.toBeInTheDocument()
   })
 
+  it('supports repeated fields without a visible label', () => {
+    render(<FormField><input aria-label="Cantidad adicional" /></FormField>)
+    expect(screen.getByLabelText('Cantidad adicional')).toBeInTheDocument()
+  })
+
   it('renders error message when error prop is provided', () => {
     render(<FormField label="Email" error="Campo requerido"><input /></FormField>)
     expect(screen.getByText('Campo requerido')).toBeInTheDocument()

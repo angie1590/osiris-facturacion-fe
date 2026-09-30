@@ -5,7 +5,10 @@ import { Sidebar } from "@/components/shared/Sidebar";
 import { Topbar } from "@/components/shared/Topbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
-import { useCompanyConfig } from "@/features/admin/hooks";
+import {
+  buildEmpresaConfigurationStatus,
+  useEmpresaPrincipal,
+} from "@/features/empresa/hooks";
 import { usePendingRecategorization } from "@/features/catalog/hooks";
 import { usePendingRemap } from "@/features/catalog/remapHooks";
 import { useSessionTimer } from "@/hooks/use-session-timer";
@@ -19,8 +22,9 @@ export default function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { user, logout, reloadUser } = useAuth();
   const navigate = useNavigate();
-  const { data: company } = useCompanyConfig();
-  const showBanner = !company || !company.is_complete;
+  const { data: empresa } = useEmpresaPrincipal();
+  const empresaStatus = buildEmpresaConfigurationStatus(empresa);
+  const showBanner = !empresaStatus.fiscalComplete;
   const canRecategorize = user?.role === "admin" || user?.role === "supervisor";
   const { data: pendingProducts } = usePendingRecategorization();
   const pendingRecategorization = canRecategorize
@@ -33,14 +37,14 @@ export default function AppLayout() {
     (user?.role === "admin" || user?.role === "supervisor") &&
     !user?.has_approval_code;
 
-  const { showWarning } = useSessionTimer(() => {
-    void handleLogout();
-  }, timeoutMinutes);
-
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
+
+  const { showWarning } = useSessionTimer(() => {
+    void handleLogout();
+  }, timeoutMinutes);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -111,7 +115,7 @@ export default function AppLayout() {
               <>
                 <span>Configuración de empresa incompleta.</span>
                 <Link
-                  to="/admin/company"
+                  to="/empresa"
                   className="font-semibold underline underline-offset-2 hover:no-underline"
                 >
                   Configurar ahora

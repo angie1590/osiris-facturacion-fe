@@ -293,27 +293,38 @@ export default function EgresoNewPage() {
   const [createdDocument, setCreatedDocument] =
     useState<InventoryDocument | null>(null);
   const costSyncRef = useRef(0);
-  const enabledEgresoTypes = saleOnly
-    ? (["sale"] as EgresoType[])
-    : company?.enabled_egreso_types?.length
-      ? company.enabled_egreso_types
-      : ALL_EGRESO_TYPES;
-  const enabledBajaReasons: BajaReason[] = company?.enabled_baja_reasons?.length
-    ? company.enabled_baja_reasons
-    : [
-        "damage",
-        "expiration",
-        "loss",
-        "theft",
-        "donation",
-        "gift",
-        "destruction",
-        "sample",
-        "other",
-      ];
+  const enabledEgresoTypes = useMemo(
+    () =>
+      saleOnly
+        ? (["sale"] as EgresoType[])
+        : company?.enabled_egreso_types?.length
+          ? company.enabled_egreso_types
+          : ALL_EGRESO_TYPES,
+    [company?.enabled_egreso_types, saleOnly],
+  );
+  const enabledBajaReasons = useMemo<BajaReason[]>(
+    () =>
+      company?.enabled_baja_reasons?.length
+        ? company.enabled_baja_reasons
+        : [
+            "damage",
+            "expiration",
+            "loss",
+            "theft",
+            "donation",
+            "gift",
+            "destruction",
+            "sample",
+            "other",
+          ],
+    [company?.enabled_baja_reasons],
+  );
   const enabledAdjustmentReasons: AdjustmentReason[] =
     ADJUSTMENT_REASON_OPTIONS;
-  const enabledSellers = company?.sellers?.length ? company.sellers : [];
+  const enabledSellers = useMemo(
+    () => (company?.sellers?.length ? company.sellers : []),
+    [company?.sellers],
+  );
   const activePaymentMethods = useMemo(
     () =>
       (
@@ -575,8 +586,10 @@ export default function EgresoNewPage() {
         const kardex = kardexMap.get(line.product_id);
         if (!kardex) return line;
 
-        let nextCost = 0;
-        if (String(kardex.method).toUpperCase() === "PEPS") {
+        const nextCost = (() => {
+          if (String(kardex.method).toUpperCase() !== "PEPS") {
+            return Number(kardex.weighted_avg_cost || 0);
+          }
           const lots =
             pepsLotsByProduct.get(line.product_id) ?? buildPepsLots(kardex);
           pepsLotsByProduct.set(line.product_id, lots);
@@ -590,13 +603,12 @@ export default function EgresoNewPage() {
             lot.available -= consumed;
             remaining -= consumed;
           }
-          nextCost =
+          return (
             Number(line.quantity || 0) > 0
               ? consumedValue / Number(line.quantity || 1)
-              : 0;
-        } else {
-          nextCost = Number(kardex.weighted_avg_cost || 0);
-        }
+              : 0
+          );
+        })();
 
         const normalized = Number.isFinite(nextCost) ? nextCost : 0;
         return {

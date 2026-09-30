@@ -9,7 +9,7 @@ import { useCategories, useToggleProductStatus } from './hooks'
 import { CategoryFormModal } from './CategoryFormModal'
 import { useToast } from '@/hooks/use-toast'
 import { getApiErrorMessage } from '@/lib/api-error'
-import type { Product } from '@/types/api'
+import type { Category, Product } from '@/types/api'
 
 /**
  * Shown when reactivating a product whose original category was deleted. Forces
@@ -25,7 +25,7 @@ export function ReactivateProductDialog({ product, onClose }: { product: Product
   const [submitting, setSubmitting] = useState(false)
   const [showCategoryForm, setShowCategoryForm] = useState(false)
 
-  const handleCategoryCreated = (category: any) => {
+  const handleCategoryCreated = (category: Category) => {
     setShowCategoryForm(false)
     setCategoryId(category.id)
     toast({

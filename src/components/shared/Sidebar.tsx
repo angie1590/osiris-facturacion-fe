@@ -136,7 +136,6 @@ const GROUP_CHILD_ORDER: Record<SidebarGroupId, string[]> = {
   ],
   "admin-organizacion": [
     "/empresa",
-    "/admin/company",
     "/configuracion-operativa",
   ],
 };
@@ -210,7 +209,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/configuracion-operativa",
-    label: "Sucursales y emisión",
+    label: "Sucursales y puntos de emisión",
     icon: Building2,
     roles: ["admin", "supervisor"],
     section: "admin",
@@ -218,7 +217,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     to: "/empresa",
-    label: "Datos de empresa",
+    label: "Empresa",
     icon: Building2,
     roles: ["admin", "supervisor"],
     section: "admin",
@@ -459,14 +458,6 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ["admin"],
     section: "admin",
   },
-  {
-    to: "/admin/company",
-    label: "Configuración de empresa",
-    icon: Building2,
-    roles: ["admin", "supervisor"],
-    section: "admin",
-    sidebarGroup: "admin-organizacion",
-  },
 ];
 
 const SECTION_LABELS: Record<Section, string> = {
@@ -574,8 +565,10 @@ export function Sidebar({
         ? null
         : manualExpandedSection;
   const expandedSection: CollapsibleSection | null =
-    activeSection && activeSection !== "principal"
-      ? activeSection
+    manualExpandedSection === null
+      ? activeSection && activeSection !== "principal"
+        ? activeSection
+        : preferredExpandedSection
       : preferredExpandedSection;
 
   return (
@@ -798,7 +791,7 @@ function GroupedSectionItems({
         ? null
         : manualExpanded;
   const expandedGroup: SidebarGroupId | null =
-    activeGroup ?? preferredExpandedGroup;
+    manualExpanded === null ? activeGroup ?? preferredExpandedGroup : preferredExpandedGroup;
 
   return (
     <div className="space-y-1">
@@ -925,7 +918,7 @@ function AnalysisGroupedItems({
         ? null
         : manualExpanded;
   const expandedGroup: AnalysisGroupId | null =
-    activeAnalysisGroup ?? preferredExpandedGroup;
+    manualExpanded === null ? activeAnalysisGroup ?? preferredExpandedGroup : preferredExpandedGroup;
 
   return (
     <div className="space-y-2">

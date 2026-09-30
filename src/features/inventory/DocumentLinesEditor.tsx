@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Search, Plus, Trash2 } from "lucide-react";
@@ -201,19 +201,19 @@ function ProductCombobox({
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
   }, [open, productItems, value]);
 
-  const selectProduct = (product: Product) => {
+  const selectProduct = useCallback((product: Product) => {
     if (onChange(product) === false) return;
     setSearch(product.name);
     setOpen(false);
     inputRef.current?.blur();
-  };
+  }, [onChange]);
 
   useEffect(() => {
     if (!open || !search.trim() || productItems.length !== 1) return;
     const onlyProduct = productItems[0];
     if (value === onlyProduct.id) return;
     selectProduct(onlyProduct);
-  }, [open, productItems, search, value]);
+  }, [open, productItems, search, selectProduct, value]);
 
   useEffect(() => {
     optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
@@ -433,7 +433,7 @@ export function DocumentLinesEditor({
 
   const clearUndo = () => setLastDeletedLine(null);
 
-  const focusLineProduct = (lineIndex: number) => {
+  const focusLineProduct = useCallback((lineIndex: number) => {
     window.setTimeout(() => {
       const input = document.querySelector<HTMLInputElement>(
         `[data-line-index="${lineIndex}"] input`,
@@ -441,7 +441,7 @@ export function DocumentLinesEditor({
       input?.focus();
       input?.select?.();
     }, 0);
-  };
+  }, []);
 
   const focusLineQuantity = (lineIndex: number) => {
     window.setTimeout(() => {
@@ -479,7 +479,7 @@ export function DocumentLinesEditor({
     onChange(lines.map((l, idx) => (idx === i ? { ...l, ...partial } : l)));
   };
 
-  const restoreLastDeletedLine = () => {
+  const restoreLastDeletedLine = useCallback(() => {
     if (!lastDeletedLine) return;
     const nextLines = [...lines];
     nextLines.splice(
@@ -492,7 +492,7 @@ export function DocumentLinesEditor({
     window.setTimeout(() => {
       focusLineProduct(Math.min(lastDeletedLine.index, nextLines.length - 1));
     }, 0);
-  };
+  }, [focusLineProduct, lastDeletedLine, lines, onChange]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -505,7 +505,7 @@ export function DocumentLinesEditor({
 
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [lastDeletedLine, lines]);
+  }, [lastDeletedLine, restoreLastDeletedLine]);
 
   const totals = useMemo(() => {
     const totalUnits = lines.reduce((acc, line) => {
@@ -541,7 +541,7 @@ export function DocumentLinesEditor({
           total,
         };
       }),
-    [lines],
+    [defaultDiscountType, lines],
   );
 
   return (

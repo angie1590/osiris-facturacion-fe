@@ -73,7 +73,7 @@ export function SearchableSelect({
       if (current >= filtered.length) return filtered.length - 1;
       return current;
     });
-  }, [open, value, query, filtered.length]);
+  }, [filtered, open, value]);
 
   const onSearchRef = React.useRef(onSearch);
 

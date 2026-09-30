@@ -412,12 +412,15 @@ export default function IngresoNewPage() {
       });
     });
 
-  const enabledIngresoTypes =
-    user?.role === "operator"
-      ? (["purchase"] as IngresoType[])
-      : company?.enabled_ingreso_types?.length
-        ? company.enabled_ingreso_types
-        : ALL_INGRESO_TYPES;
+  const enabledIngresoTypes = useMemo(
+    () =>
+      user?.role === "operator"
+        ? (["purchase"] as IngresoType[])
+        : company?.enabled_ingreso_types?.length
+          ? company.enabled_ingreso_types
+          : ALL_INGRESO_TYPES,
+    [company?.enabled_ingreso_types, user?.role],
+  );
   const sortedIngresoTypes = useMemo(
     () =>
       sortWithOtherLast(

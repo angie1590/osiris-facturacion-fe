@@ -1,0 +1,7 @@
+schema: spec-driven
+created: 2026-09-30
+goal: Dejar una experiencia única, compilable y verificable para operar
+  inventario, compras y ventas.
+initiative:
+  store: osiris-facturacion-context
+  id: ecuador-inventory-billing-mvp

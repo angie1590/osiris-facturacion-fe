@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -52,16 +52,11 @@ export default function ProductDetailPage() {
   const { integerMode } = useStockMode();
   const toggleStatus = useToggleProductStatus();
 
-  if (isLoading) return <Skeleton className="h-64 w-full" />;
-  if (!product) return <p>Producto no encontrado</p>;
-
-  const gallery = (product.photos ?? []).filter((img) => !!img?.url);
-  const images =
-    gallery.length > 0
-      ? gallery
-      : product.photo
-        ? [{ url: product.photo, is_cover: true }]
-        : [];
+  const images = useMemo(() => {
+    const gallery = (product?.photos ?? []).filter((img) => !!img?.url);
+    if (gallery.length > 0) return gallery;
+    return product?.photo ? [{ url: product.photo, is_cover: true }] : [];
+  }, [product]);
   const coverIndex = Math.max(
     0,
     images.findIndex((img) => img.is_cover),
@@ -115,6 +110,9 @@ export default function ProductDetailPage() {
       disposed = true;
     };
   }, [photoZoomOpen, images, imageDimensions]);
+
+  if (isLoading) return <Skeleton className="h-64 w-full" />;
+  if (!product) return <p>Producto no encontrado</p>;
 
   const handleToggle = async () => {
     const newStatus = product.status === "active" ? "inactive" : "active";

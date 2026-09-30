@@ -106,7 +106,7 @@ function productOptionLabel(
 }
 
 function buildPepsLayerSummary(
-  entries: Array<any>,
+  entries: KardexEntry[],
   openingBalanceQty: number,
   closingQty: number,
   quantityMode: "integer" | "decimal",

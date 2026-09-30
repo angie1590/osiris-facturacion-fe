@@ -26,10 +26,9 @@ export default function RecategorizePage() {
     {},
   );
 
-  const cats = categories ?? [];
-
   // Group pending products by their default (Sin clasificar) category.
   const groups = useMemo(() => {
+    const cats = categories ?? [];
     const byDefault = new Map<number, Product[]>();
     for (const p of pending ?? []) {
       const list = byDefault.get(p.category_id) ?? [];
@@ -52,7 +51,7 @@ export default function RecategorizePage() {
         targets,
       };
     });
-  }, [pending, cats]);
+  }, [categories, pending]);
 
   const selectedCount = Object.values(assignments).filter(
     (v) => v != null,

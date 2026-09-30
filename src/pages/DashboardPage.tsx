@@ -22,13 +22,17 @@ import {
 import { useStockReport } from "@/features/reports/hooks";
 import { useIngresos, useEgresos } from "@/features/inventory/hooks";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCompanyConfig, useSystemHealth } from "@/features/admin/hooks";
+import { useSystemHealth } from "@/features/admin/hooks";
+import {
+  buildEmpresaConfigurationStatus,
+  useEmpresaPrincipal,
+} from "@/features/empresa/hooks";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: company } = useCompanyConfig();
+  const { data: empresa } = useEmpresaPrincipal();
   const { data: health } = useSystemHealth();
-  const companyReady = !!company?.is_complete;
+  const companyReady = buildEmpresaConfigurationStatus(empresa).fiscalComplete;
   const canViewStockReports =
     user?.role === "admin" || user?.role === "supervisor";
   const { data: lowStock, isLoading: stockLoading } = useStockReport(

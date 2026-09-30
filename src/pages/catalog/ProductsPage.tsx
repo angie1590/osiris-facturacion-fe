@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Plus,
@@ -154,7 +154,10 @@ export default function ProductsPage() {
     return cover?.url ?? gallery[0]?.url ?? null;
   };
 
-  const activeGallery = viewProduct ? productImages(viewProduct) : [];
+  const activeGallery = useMemo(
+    () => (viewProduct ? productImages(viewProduct) : []),
+    [viewProduct],
+  );
   const activeImageUrl = activeGallery[photoIndex]?.url;
   const activeImageDimensions = activeImageUrl
     ? imageDimensions[activeImageUrl]

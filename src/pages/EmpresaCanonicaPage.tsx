@@ -1,25 +1,687 @@
-import { useEffect, useState } from "react";
-import { Save } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { Save, Upload, Trash2, Building2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Section } from "@/components/shared/Section";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
-import { useTiposContribuyente } from "@/features/personas/hooks";
+import type { RegimenTributario, TipoContribuyenteJuridico } from "@/features/empresa/hooks";
 
-type Empresa = { id: string; razon_social: string; nombre_comercial: string | null; ruc: string; direccion_matriz: string; telefono: string | null; logo: string | null; obligado_contabilidad: boolean; regimen: string; modo_emision: string; tipo_contribuyente_id: string };
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+const schema = z
+  .object({
+    ruc: z
+      .string()
+      .trim()
+      .transform((value) => value.replace(/\D/g, ""))
+      .refine((value) => value.length === 13, "El RUC debe contener 13 dígitos."),
+    razon_social: z.string().trim().min(1, "Debe ingresar la razón social."),
+    nombre_comercial: z.string().trim().optional(),
+    tipo_contribuyente_juridico: z
+      .string()
+      .refine(
+        (value): value is TipoContribuyenteJuridico =>
+          value === "PERSONA_NATURAL" || value === "SOCIEDAD",
+        "Debe seleccionar el tipo de contribuyente.",
+      ),
+    regimen: z.enum(
+      ["GENERAL", "RIMPE_NEGOCIO_POPULAR", "RIMPE_EMPRENDEDOR"],
+      { error: "Debe seleccionar el régimen tributario." },
+    ),
+    obligado_contabilidad: z.boolean(),
+    contribuyente_especial: z.boolean(),
+    contribuyente_especial_resolucion: z.string().trim().optional(),
+    gran_contribuyente: z.boolean(),
+    gran_contribuyente_resolucion: z.string().trim().optional(),
+    agente_retencion: z.boolean(),
+    agente_retencion_resolucion: z.string().trim().optional(),
+    direccion_matriz: z.string().trim().min(1, "Debe ingresar la dirección matriz."),
+    email: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (value) => !value || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value),
+        "El correo electrónico no es válido.",
+      ),
+    telefono: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => (value ?? "").replace(/\D/g, "")),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.tipo_contribuyente_juridico === "SOCIEDAD" &&
+      value.regimen === "RIMPE_NEGOCIO_POPULAR"
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["regimen"],
+        message: "La combinación Sociedad + RIMPE Negocio Popular no está permitida.",
+      });
+    }
+
+    if (value.contribuyente_especial && !value.contribuyente_especial_resolucion) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["contribuyente_especial_resolucion"],
+        message: "El número de resolución es obligatorio para un contribuyente especial.",
+      });
+    }
+
+    if (value.gran_contribuyente && !value.gran_contribuyente_resolucion) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["gran_contribuyente_resolucion"],
+        message: "El número de resolución es obligatorio para un gran contribuyente.",
+      });
+    }
+
+    if (value.agente_retencion && !value.agente_retencion_resolucion) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["agente_retencion_resolucion"],
+        message: "El número de resolución es obligatorio para un agente de retención.",
+      });
+    }
+  });
+
+type Empresa = {
+  id?: string;
+  ruc: string;
+  razon_social: string;
+  nombre_comercial: string | null;
+  tipo_contribuyente_juridico: TipoContribuyenteJuridico | null;
+  regimen: RegimenTributario;
+  obligado_contabilidad: boolean;
+  contribuyente_especial: boolean;
+  contribuyente_especial_resolucion: string | null;
+  gran_contribuyente: boolean;
+  gran_contribuyente_resolucion: string | null;
+  agente_retencion: boolean;
+  agente_retencion_resolucion: string | null;
+  direccion_matriz: string;
+  email: string | null;
+  telefono: string | null;
+  logo: string | null;
+  modo_emision: string;
+  tipo_contribuyente_id: string;
+};
+
+type Sucursal = {
+  id: string;
+  codigo: string;
+  nombre: string;
+  direccion: string;
+  empresa_id: string;
+  es_matriz: boolean;
+};
+
+type FormInput = z.input<typeof schema>;
+type FormData = z.output<typeof schema>;
+
+type ApiError = {
+  response?: { data?: { detail?: string } };
+};
+
+type TipoContribuyenteForm = "" | TipoContribuyenteJuridico;
+
+function inferLegacyTipoContribuyenteId(
+  tipoJuridico: TipoContribuyenteForm,
+): string {
+  return tipoJuridico === "SOCIEDAD" ? "02" : "01";
+}
+
+function inferTipoJuridico(
+  tipoJuridico: TipoContribuyenteJuridico | null,
+  tipoContribuyenteId: string,
+): TipoContribuyenteForm {
+  if (tipoJuridico) return tipoJuridico;
+  if (tipoContribuyenteId === "01") return "PERSONA_NATURAL";
+  if (tipoContribuyenteId === "02") return "SOCIEDAD";
+  return "";
+}
+
+const REGIMEN_OPTIONS: Record<TipoContribuyenteJuridico, Array<{ value: RegimenTributario; label: string }>> = {
+  PERSONA_NATURAL: [
+    { value: "GENERAL", label: "General" },
+    { value: "RIMPE_NEGOCIO_POPULAR", label: "RIMPE - Negocio Popular" },
+    { value: "RIMPE_EMPRENDEDOR", label: "RIMPE - Emprendedor" },
+  ],
+  SOCIEDAD: [
+    { value: "GENERAL", label: "General" },
+    { value: "RIMPE_EMPRENDEDOR", label: "RIMPE - Emprendedor" },
+  ],
+};
+
+const REGIMEN_OPTIONS_ALL: Array<{ value: RegimenTributario; label: string }> = [
+  { value: "GENERAL", label: "General" },
+  { value: "RIMPE_NEGOCIO_POPULAR", label: "RIMPE - Negocio Popular" },
+  { value: "RIMPE_EMPRENDEDOR", label: "RIMPE - Emprendedor" },
+];
 
 export default function EmpresaCanonicaPage() {
   const queryClient = useQueryClient();
-  const empresa = useQuery({ queryKey: ["empresa-canonica"], queryFn: async () => (await api.get<{ items: Empresa[] }>("/empresas", { params: { limit: 1, offset: 0, only_active: true } })).data.items[0] });
-  const { data: contribuyentes = [] } = useTiposContribuyente();
-  const [form, setForm] = useState<Empresa | null>(null);
   const [saved, setSaved] = useState(false);
-  useEffect(() => { if (empresa.data && !form) setForm(empresa.data); }, [empresa.data, form]);
-  const update = useMutation({ mutationFn: async () => (await api.put(`/empresas/${form!.id}`, { ...form, usuario_auditoria: "frontend" })).data, onSuccess: (data) => { queryClient.setQueryData(["empresa-canonica"], data); setForm(data); setSaved(true); } });
-  if (empresa.isLoading || !form) return <Skeleton className="h-64 w-full" />;
-  return <div><PageHeader title="Empresa" description="Configuración tributaria y datos principales de la empresa" actions={<Button onClick={() => update.mutate()} disabled={update.isPending}><Save className="mr-2 h-4 w-4" />{update.isPending ? "Guardando..." : "Guardar cambios"}</Button>} /><div className="grid gap-4 rounded-lg border border-border bg-card p-6 md:grid-cols-2"><FormField label="Razón social" required><Input value={form.razon_social} onChange={(event) => setForm({ ...form, razon_social: event.target.value })} /></FormField><FormField label="Nombre comercial"><Input value={form.nombre_comercial ?? ""} onChange={(event) => setForm({ ...form, nombre_comercial: event.target.value })} /></FormField><FormField label="RUC" required><Input value={form.ruc} maxLength={13} onChange={(event) => setForm({ ...form, ruc: event.target.value.replace(/\D/g, "") })} /></FormField><FormField label="Teléfono"><Input value={form.telefono ?? ""} onChange={(event) => setForm({ ...form, telefono: event.target.value.replace(/\D/g, "") })} /></FormField><FormField label="Dirección matriz" required className="md:col-span-2"><Input value={form.direccion_matriz} onChange={(event) => setForm({ ...form, direccion_matriz: event.target.value })} /></FormField><FormField label="Tipo de contribuyente" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={form.tipo_contribuyente_id} onChange={(event) => setForm({ ...form, tipo_contribuyente_id: event.target.value })}>{contribuyentes.map((item) => <option key={item.codigo} value={item.codigo}>{item.codigo} · {item.nombre}</option>)}</select></FormField><FormField label="Régimen" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={form.regimen} onChange={(event) => setForm({ ...form, regimen: event.target.value })}><option value="GENERAL">General</option><option value="RIMPE_EMPRENDEDOR">RIMPE Emprendedor</option><option value="RIMPE_NEGOCIO_POPULAR">RIMPE Negocio Popular</option></select></FormField><FormField label="Modo de emisión" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={form.modo_emision} onChange={(event) => setForm({ ...form, modo_emision: event.target.value })}><option value="ELECTRONICO">Electrónico</option><option value="NOTA_VENTA_FISICA">Nota de venta física</option></select></FormField><label className="flex items-center gap-2 pt-7 text-sm"><input type="checkbox" checked={form.obligado_contabilidad} onChange={(event) => setForm({ ...form, obligado_contabilidad: event.target.checked })} /> Obligado a llevar contabilidad</label></div><DetailModal open={saved} onClose={() => setSaved(false)} title="Cambios guardados" subtitle="La configuración de la empresa fue actualizada correctamente." /></div>;
+  const [formError, setFormError] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const empresa = useQuery({
+    queryKey: ["empresa-canonica"],
+    queryFn: async () => {
+      const response = await api.get<{ items: Empresa[] }>("/empresas", {
+        params: { limit: 1, offset: 0, only_active: true },
+      });
+      return response.data.items[0] ?? null;
+    },
+  });
+
+  const sucursales = useQuery({
+    queryKey: ["sucursales-canonicas"],
+    queryFn: async () => {
+      const response = await api.get<{ items: Sucursal[] }>("/sucursales", {
+        params: { limit: 1000, offset: 0, only_active: true },
+      });
+      return response.data.items;
+    },
+  });
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<FormInput, unknown, FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      ruc: "",
+      razon_social: "",
+      nombre_comercial: "",
+      tipo_contribuyente_juridico: "",
+      regimen: "GENERAL",
+      obligado_contabilidad: false,
+      contribuyente_especial: false,
+      contribuyente_especial_resolucion: "",
+      gran_contribuyente: false,
+      gran_contribuyente_resolucion: "",
+      agente_retencion: false,
+      agente_retencion_resolucion: "",
+      direccion_matriz: "",
+      email: "",
+      telefono: "",
+    },
+  });
+
+  useEffect(() => {
+    if (!empresa.data) return;
+    reset({
+      ruc: empresa.data.ruc,
+      razon_social: empresa.data.razon_social,
+      nombre_comercial: empresa.data.nombre_comercial ?? "",
+      tipo_contribuyente_juridico: inferTipoJuridico(
+        empresa.data.tipo_contribuyente_juridico,
+        empresa.data.tipo_contribuyente_id,
+      ),
+      regimen: empresa.data.regimen,
+      obligado_contabilidad: empresa.data.obligado_contabilidad,
+      contribuyente_especial: empresa.data.contribuyente_especial,
+      contribuyente_especial_resolucion:
+        empresa.data.contribuyente_especial_resolucion ?? "",
+      gran_contribuyente: empresa.data.gran_contribuyente,
+      gran_contribuyente_resolucion: empresa.data.gran_contribuyente_resolucion ?? "",
+      agente_retencion: empresa.data.agente_retencion,
+      agente_retencion_resolucion: empresa.data.agente_retencion_resolucion ?? "",
+      direccion_matriz: empresa.data.direccion_matriz,
+      email: empresa.data.email ?? "",
+      telefono: empresa.data.telefono ?? "",
+    });
+    setLogoPreview(empresa.data.logo ?? null);
+  }, [empresa.data, reset]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (values: FormData) => {
+      const tipoContribuyenteLegacy = inferLegacyTipoContribuyenteId(
+        values.tipo_contribuyente_juridico,
+      );
+      const payload = {
+        ruc: values.ruc,
+        razon_social: values.razon_social,
+        nombre_comercial: values.nombre_comercial || undefined,
+        tipo_contribuyente_juridico: values.tipo_contribuyente_juridico,
+        regimen: values.regimen,
+        obligado_contabilidad: values.obligado_contabilidad,
+        contribuyente_especial: values.contribuyente_especial,
+        contribuyente_especial_resolucion: values.contribuyente_especial
+          ? values.contribuyente_especial_resolucion || undefined
+          : undefined,
+        gran_contribuyente: values.gran_contribuyente,
+        gran_contribuyente_resolucion: values.gran_contribuyente
+          ? values.gran_contribuyente_resolucion || undefined
+          : undefined,
+        agente_retencion: values.agente_retencion,
+        agente_retencion_resolucion: values.agente_retencion
+          ? values.agente_retencion_resolucion || undefined
+          : undefined,
+        direccion_matriz: values.direccion_matriz,
+        email: values.email || undefined,
+        telefono: values.telefono || undefined,
+        logo: logoPreview,
+        tipo_contribuyente_id: tipoContribuyenteLegacy,
+        usuario_auditoria: "frontend",
+      };
+
+      if (empresa.data?.id) {
+        const response = await api.put(`/empresas/${empresa.data.id}`, payload);
+        return response.data as Empresa;
+      }
+
+      const response = await api.post("/empresas", payload);
+      return response.data as Empresa;
+    },
+    onSuccess: (savedEmpresa) => {
+      queryClient.setQueryData(["empresa-canonica"], savedEmpresa);
+      queryClient.invalidateQueries({ queryKey: ["empresa-canonica"] });
+      setSaved(true);
+    },
+  });
+
+  const tipoJuridico = watch("tipo_contribuyente_juridico");
+  const regimenOptions = useMemo(
+    () => {
+      if (tipoJuridico === "PERSONA_NATURAL" || tipoJuridico === "SOCIEDAD") {
+        return REGIMEN_OPTIONS[tipoJuridico];
+      }
+      return REGIMEN_OPTIONS_ALL;
+    },
+    [tipoJuridico],
+  );
+
+  useEffect(() => {
+    const currentRegimen = watch("regimen");
+    if (regimenOptions.some((option) => option.value === currentRegimen)) return;
+    setValue("regimen", regimenOptions[0].value, { shouldValidate: true });
+  }, [regimenOptions, setValue, watch]);
+
+  const contribuyenteEspecial = watch("contribuyente_especial");
+  const granContribuyente = watch("gran_contribuyente");
+  const agenteRetencion = watch("agente_retencion");
+
+  const matriz = useMemo(() => {
+    if (!empresa.data || !sucursales.data) return null;
+    return (
+      sucursales.data.find(
+        (item) => item.empresa_id === empresa.data?.id && item.es_matriz,
+      ) ?? null
+    );
+  }, [empresa.data, sucursales.data]);
+
+  const onSubmit = async (values: FormData) => {
+    setFormError(null);
+    try {
+      await saveMutation.mutateAsync(values);
+    } catch (error) {
+      const apiError = error as ApiError;
+      setFormError(
+        apiError.response?.data?.detail ??
+          "No se pudieron guardar los cambios de la empresa.",
+      );
+    }
+  };
+
+  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > LOGO_MAX_BYTES) {
+      setFormError("El logo debe tener un tamaño máximo de 2 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const value = loadEvent.target?.result;
+      if (typeof value === "string") {
+        setLogoPreview(value);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearLogo = () => {
+    setLogoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  if (empresa.isLoading) {
+    return <Skeleton className="h-72 w-full" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Empresa"
+        description="Información tributaria y comercial del emisor"
+        actions={
+          <Button
+            onClick={handleSubmit(onSubmit)}
+            disabled={isSubmitting || saveMutation.isPending}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {isSubmitting || saveMutation.isPending
+              ? "Guardando..."
+              : "Guardar cambios"}
+          </Button>
+        }
+      />
+
+      <form className="space-y-5" onSubmit={handleSubmit(onSubmit)} noValidate>
+        {formError && (
+          <Alert variant="destructive">
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
+
+        <Section title="Identificación">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="RUC" required error={errors.ruc?.message}>
+              <Input
+                {...register("ruc")}
+                maxLength={13}
+                inputMode="numeric"
+                onChange={(event) => {
+                  setValue("ruc", event.target.value.replace(/\D/g, ""), {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+            </FormField>
+
+            <FormField
+              label="Razón social"
+              required
+              error={errors.razon_social?.message}
+            >
+              <Input {...register("razon_social")} />
+            </FormField>
+
+            <FormField
+              label="Nombre comercial"
+              error={errors.nombre_comercial?.message}
+            >
+              <Input {...register("nombre_comercial")} />
+            </FormField>
+
+            <FormField
+              label="Tipo de contribuyente"
+              required
+              error={errors.tipo_contribuyente_juridico?.message}
+            >
+              <select
+                className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
+                value={tipoJuridico}
+                onChange={(event) =>
+                  setValue(
+                    "tipo_contribuyente_juridico",
+                    event.target.value as TipoContribuyenteForm,
+                    { shouldValidate: true, shouldDirty: true },
+                  )
+                }
+              >
+                <option value="">Seleccione un tipo de contribuyente</option>
+                <option value="PERSONA_NATURAL">Persona natural</option>
+                <option value="SOCIEDAD">Sociedad</option>
+              </select>
+            </FormField>
+          </div>
+        </Section>
+
+        <Section title="Información tributaria">
+          <div className="mb-4 rounded-md border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-900">
+            La información tributaria debe coincidir con los datos registrados
+            ante el Servicio de Rentas Internas.
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Régimen tributario" required error={errors.regimen?.message}>
+              <select
+                className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
+                value={watch("regimen")}
+                onChange={(event) =>
+                  setValue("regimen", event.target.value as RegimenTributario, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+              >
+                {regimenOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <label className="flex items-center gap-2 pt-8 text-sm">
+              <input type="checkbox" {...register("obligado_contabilidad")} />
+              Obligado a llevar contabilidad
+            </label>
+
+            <div className="md:col-span-2 rounded-md border border-border p-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  {...register("contribuyente_especial")}
+                  onChange={(event) => {
+                    setValue("contribuyente_especial", event.target.checked, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                    if (!event.target.checked) {
+                      setValue("contribuyente_especial_resolucion", "", {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
+                />
+                Contribuyente especial
+              </label>
+              {contribuyenteEspecial && (
+                <div className="mt-3 max-w-md">
+                  <FormField
+                    label="Número de resolución"
+                    required
+                    error={errors.contribuyente_especial_resolucion?.message}
+                  >
+                    <Input {...register("contribuyente_especial_resolucion")} />
+                  </FormField>
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-2 rounded-md border border-border p-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  {...register("gran_contribuyente")}
+                  onChange={(event) => {
+                    setValue("gran_contribuyente", event.target.checked, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                    if (!event.target.checked) {
+                      setValue("gran_contribuyente_resolucion", "", {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
+                />
+                Gran contribuyente
+              </label>
+              {granContribuyente && (
+                <div className="mt-3 max-w-md">
+                  <FormField
+                    label="Número de resolución"
+                    required
+                    error={errors.gran_contribuyente_resolucion?.message}
+                  >
+                    <Input {...register("gran_contribuyente_resolucion")} />
+                  </FormField>
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-2 rounded-md border border-border p-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  {...register("agente_retencion")}
+                  onChange={(event) => {
+                    setValue("agente_retencion", event.target.checked, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                    if (!event.target.checked) {
+                      setValue("agente_retencion_resolucion", "", {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }
+                  }}
+                />
+                Agente de retención
+              </label>
+              {agenteRetencion && (
+                <div className="mt-3 max-w-md">
+                  <FormField
+                    label="Número de resolución"
+                    required
+                    error={errors.agente_retencion_resolucion?.message}
+                  >
+                    <Input {...register("agente_retencion_resolucion")} />
+                  </FormField>
+                </div>
+              )}
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Domicilio fiscal">
+          <FormField
+            label="Dirección matriz"
+            required
+            error={errors.direccion_matriz?.message}
+          >
+            <Input {...register("direccion_matriz")} />
+          </FormField>
+        </Section>
+
+        <Section title="Contacto">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Correo electrónico" error={errors.email?.message}>
+              <Input {...register("email")} />
+            </FormField>
+            <FormField label="Teléfono" error={errors.telefono?.message}>
+              <Input
+                {...register("telefono")}
+                inputMode="numeric"
+                maxLength={10}
+                onChange={(event) => {
+                  setValue("telefono", event.target.value.replace(/\D/g, ""), {
+                    shouldValidate: true,
+                  });
+                }}
+              />
+            </FormField>
+          </div>
+        </Section>
+
+        <Section title="Identidad comercial">
+          <div className="space-y-4">
+            {logoPreview ? (
+              <img
+                src={logoPreview}
+                alt="Logo de empresa"
+                className="h-24 w-auto max-w-72 rounded border bg-muted/10 object-contain p-1"
+              />
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Building2 className="h-4 w-4" />
+                No hay logo configurado.
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={handleLogoChange}
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Cambiar logo
+              </Button>
+              <Button type="button" variant="outline" onClick={clearLogo}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Formatos permitidos: PNG, JPG, WEBP, SVG. Tamaño máximo: 2 MB.
+            </p>
+          </div>
+        </Section>
+
+        <Section title="Establecimiento matriz">
+          {sucursales.isLoading ? (
+            <Skeleton className="h-12 w-full" />
+          ) : matriz ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">
+                {matriz.codigo} · {matriz.nombre}
+              </p>
+              <p className="text-sm text-muted-foreground">{matriz.direccion}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No se encontró un establecimiento matriz activo para esta empresa.
+            </p>
+          )}
+          <Button asChild className="mt-3" variant="outline">
+            <Link to="/configuracion-operativa">Ver sucursales y puntos de emisión</Link>
+          </Button>
+        </Section>
+      </form>
+
+      <DetailModal
+        open={saved}
+        onClose={() => setSaved(false)}
+        title="Cambios guardados"
+        subtitle="La configuración de empresa se actualizó correctamente."
+      />
+    </div>
+  );
 }

@@ -20,30 +20,56 @@ const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
 const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
 const CategoriasCanonicasPage = lazy(() => import("@/pages/CategoriasPage"));
 const AtributosPage = lazy(() => import("@/pages/AtributosPage"));
-const CategoriasAtributosPage = lazy(() => import("@/pages/CategoriasAtributosPage"));
+const CategoriasAtributosPage = lazy(
+  () => import("@/pages/CategoriasAtributosPage"),
+);
 const BodegasPage = lazy(() => import("@/pages/BodegasPage"));
-const ConfiguracionOperativaPage = lazy(() => import("@/pages/ConfiguracionOperativaPage"));
+const ConfiguracionOperativaPage = lazy(
+  () => import("@/pages/ConfiguracionOperativaPage"),
+);
 const ImpuestosPage = lazy(() => import("@/pages/ImpuestosPage"));
 const EmpresaCanonicaPage = lazy(() => import("@/pages/EmpresaCanonicaPage"));
 const VentasPage = lazy(() => import("@/pages/VentasPage"));
 const CuentasPorPagarPage = lazy(() => import("@/pages/CuentasPorPagarPage"));
 const ComprasPage = lazy(() => import("@/pages/ComprasPage"));
 const RetencionesPage = lazy(() => import("@/pages/RetencionesPage"));
-const RetencionesHistorialPage = lazy(() => import("@/pages/RetencionesHistorialPage"));
+const RetencionesHistorialPage = lazy(
+  () => import("@/pages/RetencionesHistorialPage"),
+);
 const ReporteComprasPage = lazy(() => import("@/pages/ReporteComprasPage"));
-const ReporteCarteraPagarPage = lazy(() => import("@/pages/ReporteCarteraPagarPage"));
-const ReporteCarteraCobrarPage = lazy(() => import("@/pages/ReporteCarteraCobrarPage"));
+const ReporteCarteraPagarPage = lazy(
+  () => import("@/pages/ReporteCarteraPagarPage"),
+);
+const ReporteCarteraCobrarPage = lazy(
+  () => import("@/pages/ReporteCarteraCobrarPage"),
+);
 const ReporteSRIPage = lazy(() => import("@/pages/ReporteSRIPage"));
-const ReporteTributarioPage = lazy(() => import("@/pages/ReporteTributarioPage"));
-const ReporteVentasCanonicoPage = lazy(() => import("@/pages/ReporteVentasCanonicoPage"));
-const ReporteValoracionInventarioPage = lazy(() => import("@/pages/ReporteValoracionInventarioPage"));
+const ReporteTributarioPage = lazy(
+  () => import("@/pages/ReporteTributarioPage"),
+);
+const ReporteVentasCanonicoPage = lazy(
+  () => import("@/pages/ReporteVentasCanonicoPage"),
+);
+const ReporteValoracionInventarioPage = lazy(
+  () => import("@/pages/ReporteValoracionInventarioPage"),
+);
 const ReporteKardexPage = lazy(() => import("@/pages/ReporteKardexPage"));
 const ReporteCajaPage = lazy(() => import("@/pages/ReporteCajaPage"));
-const ReporteRentabilidadPage = lazy(() => import("@/pages/ReporteRentabilidadPage"));
-const ReporteRentabilidadTransaccionesPage = lazy(() => import("@/pages/ReporteRentabilidadTransaccionesPage"));
-const ReporteTopProductosPage = lazy(() => import("@/pages/ReporteTopProductosPage"));
-const ReporteTendenciasVentasPage = lazy(() => import("@/pages/ReporteTendenciasVentasPage"));
-const ReporteVendedoresPage = lazy(() => import("@/pages/ReporteVendedoresPage"));
+const ReporteRentabilidadPage = lazy(
+  () => import("@/pages/ReporteRentabilidadPage"),
+);
+const ReporteRentabilidadTransaccionesPage = lazy(
+  () => import("@/pages/ReporteRentabilidadTransaccionesPage"),
+);
+const ReporteTopProductosPage = lazy(
+  () => import("@/pages/ReporteTopProductosPage"),
+);
+const ReporteTendenciasVentasPage = lazy(
+  () => import("@/pages/ReporteTendenciasVentasPage"),
+);
+const ReporteVendedoresPage = lazy(
+  () => import("@/pages/ReporteVendedoresPage"),
+);
 const DocumentosSRIPage = lazy(() => import("@/pages/DocumentosSRIPage"));
 const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
 const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
@@ -77,7 +103,6 @@ const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const AuditPage = lazy(() => import("@/pages/AuditPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminParamsPage = lazy(() => import("@/pages/admin/AdminParamsPage"));
-const AdminCompanyPage = lazy(() => import("@/pages/admin/AdminCompanyPage"));
 
 function PageLoader() {
   return (
@@ -115,33 +140,83 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
-                <Route path="/categorias" element={<CategoriasCanonicasPage />} />
+                <Route
+                  path="/categorias"
+                  element={<CategoriasCanonicasPage />}
+                />
                 <Route path="/atributos" element={<AtributosPage />} />
-                <Route path="/categorias-atributos" element={<CategoriasAtributosPage />} />
+                <Route
+                  path="/categorias-atributos"
+                  element={<CategoriasAtributosPage />}
+                />
                 <Route path="/bodegas" element={<BodegasPage />} />
-                <Route path="/configuracion-operativa" element={<ConfiguracionOperativaPage />} />
+                <Route
+                  path="/configuracion-operativa"
+                  element={<ConfiguracionOperativaPage />}
+                />
                 <Route path="/impuestos" element={<ImpuestosPage />} />
-                <Route path="/empresa" element={<EmpresaCanonicaPage />} />
                 <Route path="/ventas" element={<VentasPage />} />
                 <Route path="/compras" element={<ComprasPage />} />
                 <Route path="/retenciones" element={<RetencionesPage />} />
-                <Route path="/retenciones/historial" element={<RetencionesHistorialPage />} />
-                <Route path="/reportes/compras" element={<ReporteComprasPage />} />
-                <Route path="/reportes/cartera-pagar" element={<ReporteCarteraPagarPage />} />
-                <Route path="/reportes/cartera-cobrar" element={<ReporteCarteraCobrarPage />} />
+                <Route
+                  path="/retenciones/historial"
+                  element={<RetencionesHistorialPage />}
+                />
+                <Route
+                  path="/reportes/compras"
+                  element={<ReporteComprasPage />}
+                />
+                <Route
+                  path="/reportes/cartera-pagar"
+                  element={<ReporteCarteraPagarPage />}
+                />
+                <Route
+                  path="/reportes/cartera-cobrar"
+                  element={<ReporteCarteraCobrarPage />}
+                />
                 <Route path="/reportes/sri" element={<ReporteSRIPage />} />
-                <Route path="/reportes/tributario" element={<ReporteTributarioPage />} />
-                <Route path="/reportes/ventas" element={<ReporteVentasCanonicoPage />} />
-                <Route path="/reportes/inventario/valoracion" element={<ReporteValoracionInventarioPage />} />
-                <Route path="/reportes/inventario/kardex" element={<ReporteKardexPage />} />
+                <Route
+                  path="/reportes/tributario"
+                  element={<ReporteTributarioPage />}
+                />
+                <Route
+                  path="/reportes/ventas"
+                  element={<ReporteVentasCanonicoPage />}
+                />
+                <Route
+                  path="/reportes/inventario/valoracion"
+                  element={<ReporteValoracionInventarioPage />}
+                />
+                <Route
+                  path="/reportes/inventario/kardex"
+                  element={<ReporteKardexPage />}
+                />
                 <Route path="/reportes/caja" element={<ReporteCajaPage />} />
-                <Route path="/reportes/rentabilidad" element={<ReporteRentabilidadPage />} />
-                <Route path="/reportes/rentabilidad/transacciones" element={<ReporteRentabilidadTransaccionesPage />} />
-                <Route path="/reportes/productos" element={<ReporteTopProductosPage />} />
-                <Route path="/reportes/ventas/tendencias" element={<ReporteTendenciasVentasPage />} />
-                <Route path="/reportes/ventas/vendedores" element={<ReporteVendedoresPage />} />
+                <Route
+                  path="/reportes/rentabilidad"
+                  element={<ReporteRentabilidadPage />}
+                />
+                <Route
+                  path="/reportes/rentabilidad/transacciones"
+                  element={<ReporteRentabilidadTransaccionesPage />}
+                />
+                <Route
+                  path="/reportes/productos"
+                  element={<ReporteTopProductosPage />}
+                />
+                <Route
+                  path="/reportes/ventas/tendencias"
+                  element={<ReporteTendenciasVentasPage />}
+                />
+                <Route
+                  path="/reportes/ventas/vendedores"
+                  element={<ReporteVendedoresPage />}
+                />
                 <Route path="/documentos-sri" element={<DocumentosSRIPage />} />
-                <Route path="/cuentas-por-pagar" element={<CuentasPorPagarPage />} />
+                <Route
+                  path="/cuentas-por-pagar"
+                  element={<CuentasPorPagarPage />}
+                />
 
                 {/* Categories - all roles can view; write is gated in-page (admin + supervisor) */}
                 <Route path="/categories" element={<CategoriesPage />} />
@@ -243,8 +318,12 @@ export default function App() {
 
                 {/* Admin */}
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
+                  <Route path="/empresa" element={<EmpresaCanonicaPage />} />
+                  <Route
+                    path="/admin/company"
+                    element={<Navigate to="/empresa" replace />}
+                  />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
-                  <Route path="/admin/company" element={<AdminCompanyPage />} />
                 </Route>
                 <Route element={<RoleGuard roles={["admin"]} />}>
                   <Route path="/admin/params" element={<AdminParamsPage />} />
