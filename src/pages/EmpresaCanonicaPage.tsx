@@ -26,6 +26,7 @@ import { ConfigurationPanel } from "@/components/shared/ConfigurationPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import api from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   buildEmpresaConfigurationStatus,
   certificatePreviewToEmpresaForm,
@@ -431,8 +432,7 @@ export default function EmpresaCanonicaPage() {
       onSuccess: setCertificatePreview,
       onError: (error) =>
         setCertificateError(
-          (error as { response?: { data?: { detail?: string } } }).response?.data
-            ?.detail ?? "No se pudo leer el certificado RUC.",
+          getApiErrorMessage(error, "No se pudo leer el certificado RUC."),
         ),
     });
   };

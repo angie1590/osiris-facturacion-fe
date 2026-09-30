@@ -19,6 +19,7 @@ describe("previewSriRucCertificate", () => {
     expect(post).toHaveBeenCalledWith(
       "/empresas/importar-certificado-ruc",
       expect.any(FormData),
+      { headers: { "Content-Type": "multipart/form-data" } },
     );
     const formData = post.mock.calls[0][1] as FormData;
     expect(formData.get("file")).toBe(file);

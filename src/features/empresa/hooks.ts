@@ -78,6 +78,7 @@ export async function previewSriRucCertificate(file: File) {
   const response = await api.post<SriRucCertificatePreview>(
     "/empresas/importar-certificado-ruc",
     formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
   );
   return response.data;
 }
