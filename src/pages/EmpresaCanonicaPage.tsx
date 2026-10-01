@@ -201,10 +201,6 @@ type Sucursal = {
 type FormInput = z.input<typeof schema>;
 type FormData = z.output<typeof schema>;
 
-type ApiError = {
-  response?: { data?: { detail?: string } };
-};
-
 type TipoContribuyenteForm = "" | TipoContribuyenteJuridico;
 
 function inferLegacyTipoContribuyenteId(
@@ -456,10 +452,8 @@ export default function EmpresaCanonicaPage() {
     try {
       await saveMutation.mutateAsync(values);
     } catch (error) {
-      const apiError = error as ApiError;
       setFormError(
-        apiError.response?.data?.detail ??
-          "No se pudieron guardar los cambios de la empresa.",
+        getApiErrorMessage(error, "No se pudieron guardar los cambios de la empresa."),
       );
     }
   };
