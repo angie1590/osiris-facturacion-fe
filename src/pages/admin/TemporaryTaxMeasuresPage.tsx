@@ -8,10 +8,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import { FormField } from "@/components/shared/FormField";
+import { TablePagination } from "@/components/shared/TablePagination";
 import {
   Dialog,
   DialogBody,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -23,7 +25,8 @@ type TaxType = "IVA" | "ICE";
 type TaxComponent = "PORCENTUAL" | "AD_VALOREM" | "ESPECIFICO";
 type MeasureState = "BORRADOR" | "ACTIVA" | "INACTIVA";
 type Company = { id: string; razon_social: string; ruc: string };
-type Product = { id: string; nombre: string; tipo: string; activo?: boolean };
+type ProductCategory = { id: string; nombre: string };
+type Product = { id: string; nombre: string; tipo: string; activo?: boolean; categorias: ProductCategory[] };
 type ProductTarget = {
   producto_id: string;
   producto_nombre: string;
@@ -81,6 +84,7 @@ const STATE_LABELS: Record<MeasureState, string> = {
   ACTIVA: "Activa",
   INACTIVA: "Inactiva",
 };
+const PRODUCT_PAGE_SIZE = 6;
 
 function isExpired(measure: Measure): boolean {
   return measure.fecha_fin < new Date().toISOString().slice(0, 10);
@@ -93,6 +97,10 @@ export default function TemporaryTaxMeasuresPage() {
   const [editing, setEditing] = useState<Measure | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [productSearch, setProductSearch] = useState("");
+  const [productCategoryId, setProductCategoryId] = useState("");
+  const [productPage, setProductPage] = useState(1);
+  const [bulkFactor, setBulkFactor] = useState("");
+  const [bulkUnit, setBulkUnit] = useState("LITRO_ALCOHOL_PURO");
   const [formError, setFormError] = useState<string | null>(null);
 
   const measures = useQuery({
@@ -107,8 +115,20 @@ export default function TemporaryTaxMeasuresPage() {
   });
   const products = useQuery({
     queryKey: ["productos", "medidas-tributarias"],
-    queryFn: async () =>
-      (await api.get<{ items: Product[] }>("/productos", { params: { limit: 1000, offset: 0, only_active: true } })).data.items,
+    queryFn: async () => {
+      const allProducts: Product[] = [];
+      let offset = 0;
+      while (true) {
+        const response = await api.get<{
+          items: Product[];
+          meta: { has_more: boolean; next_offset: number | null };
+        }>("/productos", { params: { limit: 1000, offset, only_active: true } });
+        allProducts.push(...response.data.items);
+        if (!response.data.meta.has_more || response.data.meta.next_offset == null) break;
+        offset = response.data.meta.next_offset;
+      }
+      return allProducts;
+    },
   });
 
   const saveMutation = useMutation({
@@ -170,14 +190,68 @@ export default function TemporaryTaxMeasuresPage() {
   const filteredProducts = useMemo(() => {
     const term = productSearch.trim().toLocaleLowerCase("es-EC");
     return (products.data ?? []).filter((product) =>
-      product.nombre.toLocaleLowerCase("es-EC").includes(term),
+      product.nombre.toLocaleLowerCase("es-EC").includes(term) &&
+      (!productCategoryId || product.categorias.some((category) => category.id === productCategoryId)),
     );
-  }, [productSearch, products.data]);
+  }, [productCategoryId, productSearch, products.data]);
+
+  const productCategories = useMemo(() => {
+    const categories = new Map<string, string>();
+    for (const product of products.data ?? []) {
+      for (const category of product.categorias) categories.set(category.id, category.nombre);
+    }
+    return [...categories.entries()]
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((left, right) => left.nombre.localeCompare(right.nombre, "es-EC"));
+  }, [products.data]);
+
+  const visibleProducts = useMemo(() => {
+    const start = (productPage - 1) * PRODUCT_PAGE_SIZE;
+    return filteredProducts.slice(start, start + PRODUCT_PAGE_SIZE);
+  }, [filteredProducts, productPage]);
+  const productTotalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCT_PAGE_SIZE));
+
+  const updateProductFilter = (categoryId: string, term: string) => {
+    setProductCategoryId(categoryId);
+    setProductSearch(term);
+    setProductPage(1);
+  };
+
+  const addProductsToSelection = (items: Product[]) => {
+    setForm((current) => {
+      const selected = { ...current.productos };
+      for (const product of items) {
+        selected[product.id] = selected[product.id] ?? {
+          factor_cantidad: bulkFactor,
+          unidad_gravable: bulkUnit,
+        };
+      }
+      return { ...current, productos: selected };
+    });
+  };
+
+  const applyBulkFactorToSelection = () => {
+    if (!bulkFactor || Number(bulkFactor) <= 0) return;
+    setForm((current) => ({
+      ...current,
+      productos: Object.fromEntries(
+        Object.entries(current.productos).map(([id, target]) => [id, {
+          ...target,
+          factor_cantidad: bulkFactor,
+          unidad_gravable: bulkUnit,
+        }]),
+      ),
+    }));
+  };
 
   const beginCreate = () => {
     setEditing(null);
     setForm({ ...EMPTY_FORM, empresa_id: companies.data?.[0]?.id ?? "" });
     setProductSearch("");
+    setProductCategoryId("");
+    setProductPage(1);
+    setBulkFactor("");
+    setBulkUnit("LITRO_ALCOHOL_PURO");
     setFormError(null);
     setOpen(true);
   };
@@ -201,6 +275,10 @@ export default function TemporaryTaxMeasuresPage() {
       }])),
     });
     setProductSearch("");
+    setProductCategoryId("");
+    setProductPage(1);
+    setBulkFactor("");
+    setBulkUnit("LITRO_ALCOHOL_PURO");
     setFormError(null);
     setOpen(true);
   };
@@ -217,7 +295,7 @@ export default function TemporaryTaxMeasuresPage() {
   const toggleProduct = (productId: string, checked: boolean) => {
     setForm((current) => {
       const next = { ...current.productos };
-      if (checked) next[productId] = next[productId] ?? { factor_cantidad: "", unidad_gravable: "LITRO_ALCOHOL_PURO" };
+      if (checked) next[productId] = next[productId] ?? { factor_cantidad: bulkFactor, unidad_gravable: bulkUnit };
       else delete next[productId];
       return { ...current, productos: next };
     });
@@ -276,7 +354,12 @@ export default function TemporaryTaxMeasuresPage() {
 
       <Dialog open={open} onOpenChange={(next) => { if (!next) setOpen(false); }}>
         <DialogContent className="max-w-3xl">
-          <DialogHeader><DialogTitle>{editing ? "Editar medida temporal" : "Nueva medida tributaria temporal"}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{editing ? "Editar medida temporal" : "Nueva medida tributaria temporal"}</DialogTitle>
+            <DialogDescription>
+              Define la vigencia y el alcance. Los productos seleccionados conservan la misma medida aunque navegues entre páginas.
+            </DialogDescription>
+          </DialogHeader>
           <DialogBody className="space-y-5">
             {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
             {editing?.estado === "INACTIVA" && <Alert><AlertDescription>La medida está inactiva. Al editarla quedará inactiva hasta que la revises y la actives nuevamente.</AlertDescription></Alert>}
@@ -321,19 +404,64 @@ export default function TemporaryTaxMeasuresPage() {
             </div>
 
             <div className="rounded-lg border p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <div><h3 className="font-semibold">Productos elegibles</h3><p className="text-xs text-muted-foreground">La tarifa excepcional solo afectará los productos seleccionados.</p></div>
-                <div className="relative w-full sm:max-w-xs"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Buscar producto" aria-label="Buscar producto elegible" /></div>
+              <div className="mb-3 space-y-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div><h3 className="font-semibold">Productos elegibles</h3><p className="text-xs text-muted-foreground">Agrega productos por categoría o incorpora el catálogo completo; la selección se conserva al cambiar de página.</p></div>
+                  <Badge variant="secondary" aria-live="polite">{Object.keys(form.productos).length} seleccionados</Badge>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[minmax(180px,0.8fr)_minmax(220px,1fr)]">
+                  <FormField label="Filtrar por categoría">
+                    <select aria-label="Filtrar por categoría" className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={productCategoryId} onChange={(event) => updateProductFilter(event.target.value, productSearch)}>
+                      <option value="">Todas las categorías</option>
+                      {productCategories.map((category) => <option key={category.id} value={category.id}>{category.nombre}</option>)}
+                    </select>
+                  </FormField>
+                  <FormField label="Buscar producto">
+                    <div className="relative"><Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={productSearch} onChange={(event) => updateProductFilter(productCategoryId, event.target.value)} placeholder="Buscar por nombre" aria-label="Buscar producto elegible" /></div>
+                  </FormField>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" disabled={!productCategoryId || filteredProducts.length === 0} onClick={() => addProductsToSelection(filteredProducts)}>
+                    Agregar categoría ({filteredProducts.length})
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" disabled={!products.data?.length} onClick={() => addProductsToSelection(products.data ?? [])}>
+                    Agregar todos los productos ({products.data?.length ?? 0})
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" disabled={!Object.keys(form.productos).length} onClick={() => updateForm("productos", {})}>
+                    Limpiar selección
+                  </Button>
+                </div>
+                {form.componente === "ESPECIFICO" && (
+                  <div className="grid gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <FormField label="Factor inicial para altas masivas">
+                      <Input type="number" min="0" step="0.00000001" value={bulkFactor} onChange={(event) => setBulkFactor(event.target.value)} placeholder="Litros de alcohol puro por envase" />
+                    </FormField>
+                    <FormField label="Unidad gravable">
+                      <select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={bulkUnit} onChange={(event) => setBulkUnit(event.target.value)}><option value="LITRO_ALCOHOL_PURO">Litro de alcohol puro</option><option value="LITRO_BEBIDA">Litro de bebida</option><option value="UNIDAD">Unidad</option><option value="OTRO">Otra unidad</option></select>
+                    </FormField>
+                    <Button type="button" size="sm" variant="outline" disabled={!bulkFactor || Object.keys(form.productos).length === 0} onClick={applyBulkFactorToSelection}>Aplicar a selección</Button>
+                    <p className="text-xs text-muted-foreground sm:col-span-3">El factor inicial se copia a productos que agregues; puedes corregirlo individualmente en las filas visibles. Verifica graduación y presentación de cada producto.</p>
+                  </div>
+                )}
               </div>
-              <div className="max-h-64 space-y-2 overflow-y-auto">
-                {(products.data ?? []).length === 0 && !products.isLoading ? <p className="p-4 text-sm text-muted-foreground">No hay productos activos disponibles.</p> : filteredProducts.map((product) => {
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {(products.data ?? []).length === 0 && !products.isLoading ? <p className="p-4 text-sm text-muted-foreground">No hay productos activos disponibles.</p> : filteredProducts.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No hay productos para este filtro.</p> : visibleProducts.map((product) => {
                   const target = form.productos[product.id];
                   return <div key={product.id} className="rounded-md border p-3">
-                    <label className="flex items-center gap-3 text-sm font-medium"><input type="checkbox" checked={!!target} onChange={(event) => toggleProduct(product.id, event.target.checked)} />{product.nombre}<span className="text-xs font-normal text-muted-foreground">{product.tipo}</span></label>
+                    <label className="flex items-center gap-3 text-sm font-medium"><input type="checkbox" checked={!!target} onChange={(event) => toggleProduct(product.id, event.target.checked)} />{product.nombre}<span className="text-xs font-normal text-muted-foreground">{product.tipo}</span><span className="ml-auto text-xs font-normal text-muted-foreground">{product.categorias.map((category) => category.nombre).join(" · ") || "Sin categoría"}</span></label>
                     {target && form.componente === "ESPECIFICO" && <div className="mt-3 grid gap-3 pl-7 sm:grid-cols-2"><FormField label="Unidad gravable por unidad vendida" required><Input type="number" min="0" step="0.00000001" value={target.factor_cantidad} onChange={(event) => setForm((current) => ({ ...current, productos: { ...current.productos, [product.id]: { ...target, factor_cantidad: event.target.value } } }))} placeholder="Ej. litros de alcohol puro por botella" /></FormField><FormField label="Unidad" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={target.unidad_gravable} onChange={(event) => setForm((current) => ({ ...current, productos: { ...current.productos, [product.id]: { ...target, unidad_gravable: event.target.value } } }))}><option value="LITRO_ALCOHOL_PURO">Litro de alcohol puro</option><option value="LITRO_BEBIDA">Litro de bebida</option><option value="UNIDAD">Unidad</option><option value="OTRO">Otra unidad</option></select></FormField></div>}
                   </div>;
                 })}
               </div>
+              {filteredProducts.length > PRODUCT_PAGE_SIZE && <TablePagination
+                page={productPage}
+                pageSize={PRODUCT_PAGE_SIZE}
+                total={filteredProducts.length}
+                totalPages={productTotalPages}
+                onPageChange={setProductPage}
+                itemLabel="productos"
+                className="mt-3 border-t pt-3"
+              />}
             </div>
 
             <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
