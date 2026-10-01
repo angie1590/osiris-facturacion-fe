@@ -88,6 +88,7 @@ describe("TemporaryTaxMeasuresPage", () => {
     await user.click(await screen.findByRole("button", { name: /Nueva medida/ }));
     await screen.findByRole("heading", { name: "Productos elegibles" });
 
+    expect(screen.getByRole("button", { name: "Agregar categoría (0)" })).toBeDisabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "Filtrar por categoría" }), "category-beer");
     expect(screen.getByRole("button", { name: "Agregar categoría (13)" })).toBeEnabled();
     await user.click(screen.getByRole("button", { name: "Agregar categoría (13)" }));

@@ -422,7 +422,7 @@ export default function TemporaryTaxMeasuresPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant="outline" disabled={!productCategoryId || filteredProducts.length === 0} onClick={() => addProductsToSelection(filteredProducts)}>
-                    Agregar categoría ({filteredProducts.length})
+                    Agregar categoría ({productCategoryId ? filteredProducts.length : 0})
                   </Button>
                   <Button type="button" size="sm" variant="outline" disabled={!products.data?.length} onClick={() => addProductsToSelection(products.data ?? [])}>
                     Agregar todos los productos ({products.data?.length ?? 0})
