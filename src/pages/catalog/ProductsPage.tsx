@@ -6,9 +6,6 @@ import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
-  Eye,
-  Pencil,
-  Power,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -310,57 +307,6 @@ export default function ProductsPage() {
       sortAccessor: (p) => p.status,
       cell: (p) => <StatusBadge status={p.status} />,
     },
-    {
-      key: "actions",
-      header: "",
-      className: "text-right",
-      cell: (p) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setViewProduct(p)}
-            title="Ver producto"
-            aria-label="Ver producto"
-          >
-            <Eye className="h-4 w-4 text-primary" />
-          </Button>
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setEditProduct(p)}
-              title="Editar producto"
-              aria-label="Editar producto"
-            >
-              <Pencil className="h-4 w-4 text-primary" />
-            </Button>
-          )}
-          {canEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
-              onClick={() => handleStatusClick(p)}
-              title={
-                p.status === "active"
-                  ? "Desactivar producto"
-                  : "Activar producto"
-              }
-              aria-label={
-                p.status === "active"
-                  ? "Desactivar producto"
-                  : "Activar producto"
-              }
-            >
-              <Power className="h-4 w-4 text-destructive" />
-            </Button>
-          )}
-        </div>
-      ),
-    },
   ];
 
   const expandedProduct = (product: Product) => (
@@ -472,6 +418,13 @@ export default function ProductsPage() {
         data={products}
         rowKey={(p) => p.id}
         expandableRow={expandedProduct}
+        rowActions={{
+          getLabel: (product) => `producto ${product.name}`,
+          isActive: (product) => product.status === "active",
+          onView: setViewProduct,
+          onEdit: canEdit ? setEditProduct : undefined,
+          onToggleActive: canEdit ? handleStatusClick : undefined,
+        }}
         isLoading={isLoading}
         isError={isError}
         onRetry={refetch}
@@ -654,7 +607,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              <div className="relative flex h-[620px] flex-1 items-center justify-center rounded-md bg-muted/20 p-4">
+              <div className="relative flex h-155 flex-1 items-center justify-center rounded-md bg-muted/20 p-4">
                 {productImages(viewProduct).length > 1 && (
                   <Button
                     type="button"

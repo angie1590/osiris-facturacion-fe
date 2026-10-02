@@ -5,7 +5,11 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  Eye,
+  Pencil,
+  Power,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -39,6 +43,14 @@ export interface Column<T> {
   align?: "left" | "right" | "center";
 }
 
+export interface DataTableRowActions<T> {
+  getLabel: (row: T) => string;
+  isActive?: (row: T) => boolean;
+  onView?: (row: T) => void;
+  onEdit?: (row: T) => void;
+  onToggleActive?: (row: T) => void;
+}
+
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
@@ -59,6 +71,7 @@ interface DataTableProps<T> {
   sort?: SortState | null;
   onSortChange?: (sort: SortState | null) => void;
   expandableRow?: (row: T) => React.ReactNode;
+  rowActions?: DataTableRowActions<T>;
   pageSize?: number;
   pagination?:
     | boolean
@@ -140,6 +153,7 @@ export function DataTable<T>({
   sort,
   onSortChange,
   expandableRow,
+  rowActions,
   pageSize = 10,
   pagination = true,
 }: DataTableProps<T>) {
@@ -175,6 +189,15 @@ export function DataTable<T>({
   }, [data, columns, effectiveSort, isControlled]);
 
   const totalRows = sortedData.length;
+  const actionColumnCount = rowActions ? 1 : 0;
+  const actionButtonCount = rowActions
+    ? Number(Boolean(rowActions.onView)) +
+      Number(Boolean(rowActions.onEdit)) +
+      Number(Boolean(rowActions.onToggleActive))
+    : 0;
+  const expansionColumnCount = expandableRow ? 1 : 0;
+  const totalColumns =
+    columns.length + actionColumnCount + expansionColumnCount;
   const serverPagination = typeof pagination === "object" ? pagination : null;
   const totalPages =
     serverPagination?.totalPages ??
@@ -247,6 +270,9 @@ export function DataTable<T>({
                 </TableHead>
               );
             })}
+            {rowActions && (
+              <TableHead className="w-32 text-right">Acciones</TableHead>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -259,23 +285,26 @@ export function DataTable<T>({
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
                 ))}
+                {rowActions && (
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      {Array.from({ length: actionButtonCount }, (_, index) => (
+                        <Skeleton key={index} className="h-8 w-8" />
+                      ))}
+                    </div>
+                  </TableCell>
+                )}
               </TableRow>
             ))
           ) : isError ? (
             <TableRow>
-              <TableCell
-                colSpan={columns.length + (expandableRow ? 1 : 0)}
-                className="p-0"
-              >
+              <TableCell colSpan={totalColumns} className="p-0">
                 <ErrorState onRetry={onRetry} />
               </TableCell>
             </TableRow>
           ) : sortedData.length === 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={columns.length + (expandableRow ? 1 : 0)}
-                className="p-0"
-              >
+              <TableCell colSpan={totalColumns} className="p-0">
                 <EmptyState
                   heading={emptyHeading}
                   description={emptyDescription}
@@ -324,11 +353,61 @@ export function DataTable<T>({
                         {col.cell(row)}
                       </TableCell>
                     ))}
+                    {rowActions && (
+                      <TableCell className="whitespace-nowrap text-right">
+                        <div className="flex justify-end gap-1">
+                          {rowActions.onView && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => rowActions.onView?.(row)}
+                              title={`Ver ${rowActions.getLabel(row)}`}
+                              aria-label={`Ver ${rowActions.getLabel(row)}`}
+                            >
+                              <Eye className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {rowActions.onEdit && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => rowActions.onEdit?.(row)}
+                              title={`Editar ${rowActions.getLabel(row)}`}
+                              aria-label={`Editar ${rowActions.getLabel(row)}`}
+                            >
+                              <Pencil className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
+                          {rowActions.onToggleActive && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className={cn(
+                                "h-8 w-8",
+                                (rowActions.isActive?.(row) ?? true)
+                                  ? "text-destructive hover:text-destructive"
+                                  : "text-success hover:text-success",
+                              )}
+                              onClick={() => rowActions.onToggleActive?.(row)}
+                              title={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
+                              aria-label={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
+                            >
+                              <Power className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                   {isExpanded && expandableRow && (
                     <TableRow>
                       <TableCell
-                        colSpan={columns.length + 1}
+                        colSpan={totalColumns}
                         className="bg-muted/30 p-4"
                       >
                         {expandableRow(row)}

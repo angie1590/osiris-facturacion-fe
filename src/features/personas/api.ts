@@ -34,6 +34,18 @@ export interface PersonaCreateInput {
   usuario_auditoria: string;
 }
 
+export interface PersonaUpdateInput {
+  identificacion: string;
+  tipo_identificacion: TipoIdentificacion;
+  nombre: string;
+  apellido: string;
+  direccion: string | null;
+  telefono: string | null;
+  ciudad: string | null;
+  email: string | null;
+  usuario_auditoria: string;
+}
+
 export interface TipoCliente {
   id: string;
   nombre: string;
@@ -74,15 +86,32 @@ export interface ProveedorSociedad {
   activo: boolean;
 }
 
-export async function getPersonas(offset = 0, limit = 50) {
+export async function getPersonas(offset = 0, limit = 50, onlyActive = true) {
   const response = await api.get<PaginatedResponse<Persona>>("/personas", {
-    params: { offset, limit, only_active: true },
+    params: { offset, limit, only_active: onlyActive },
   });
   return response.data;
 }
 
 export async function createPersona(input: PersonaCreateInput) {
   const response = await api.post<Persona>("/personas", input);
+  return response.data;
+}
+
+export async function updatePersona(id: string, input: PersonaUpdateInput) {
+  const response = await api.put<Persona>(`/personas/${id}`, input);
+  return response.data;
+}
+
+export async function setPersonaActive(id: string, active: boolean) {
+  if (!active) {
+    await api.delete(`/personas/${id}`);
+    return;
+  }
+  const response = await api.put<Persona>(`/personas/${id}`, {
+    activo: true,
+    usuario_auditoria: "frontend",
+  });
   return response.data;
 }
 
