@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -270,22 +278,25 @@ function AuditChanges({
   }
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <table className="w-full min-w-130 text-xs">
-        <thead className="bg-muted/50">
-          <tr>
-            <th className="px-2 py-1.5 text-left font-semibold">Atributo</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Anterior</th>
-            <th className="px-2 py-1.5 text-left font-semibold">Nuevo</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div>
+      <Table
+        className="min-w-130 text-xs [&_th]:h-auto [&_th]:px-2 [&_th]:py-1.5 [&_th]:normal-case [&_th]:tracking-normal [&_td]:px-2 [&_td]:py-1.5"
+        containerClassName="rounded-md shadow-none"
+      >
+        <TableHeader>
+          <TableRow>
+            <TableHead>Atributo</TableHead>
+            <TableHead>Anterior</TableHead>
+            <TableHead>Nuevo</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {keys.map((key) => (
-            <tr key={`${log.id}-${key}`} className="border-t">
-              <td className="px-2 py-1.5 font-medium">
+            <TableRow key={`${log.id}-${key}`}>
+              <TableCell className="font-medium">
                 {FIELD_LABELS[key] ?? key}
-              </td>
-              <td className="max-w-[360px] break-all px-2 py-1.5 text-muted-foreground">
+              </TableCell>
+              <TableCell className="max-w-90 break-all text-muted-foreground">
                 {key === "category_id"
                   ? categoryById(before[key])
                   : key === "custom_attributes"
@@ -293,8 +304,8 @@ function AuditChanges({
                       ? `${customAttrChanges.length} atributo(s) modificado(s)`
                       : "Sin cambios"
                     : toDisplayValue(key, before[key])}
-              </td>
-              <td className="max-w-[360px] break-all px-2 py-1.5">
+              </TableCell>
+              <TableCell className="max-w-90 break-all">
                 {key === "category_id" ? (
                   categoryById(after[key])
                 ) : key === "custom_attributes" ? (
@@ -317,11 +328,11 @@ function AuditChanges({
                 ) : (
                   toDisplayValue(key, after[key])
                 )}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
 
       {attrModalOpen && (
         <DetailModal
@@ -333,41 +344,33 @@ function AuditChanges({
           sections={[
             {
               content: (
-                <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full min-w-130 text-xs">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-2 py-1.5 text-left font-semibold">
-                          Atributo
-                        </th>
-                        <th className="px-2 py-1.5 text-left font-semibold">
-                          Anterior
-                        </th>
-                        <th className="px-2 py-1.5 text-left font-semibold">
-                          Nuevo
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customAttrChanges.map((change) => (
-                        <tr
-                          key={`${log.id}-attr-${change.key}`}
-                          className="border-t"
-                        >
-                          <td className="px-2 py-1.5 font-medium">
-                            {change.key}
-                          </td>
-                          <td className="max-w-[360px] break-all px-2 py-1.5 text-muted-foreground">
-                            {toDisplayValue("attr_before", change.before)}
-                          </td>
-                          <td className="max-w-[360px] break-all px-2 py-1.5">
-                            {toDisplayValue("attr_after", change.after)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <Table
+                  className="min-w-130 text-xs [&_th]:h-auto [&_th]:px-2 [&_th]:py-1.5 [&_th]:normal-case [&_th]:tracking-normal [&_td]:px-2 [&_td]:py-1.5"
+                  containerClassName="rounded-md shadow-none"
+                >
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Atributo</TableHead>
+                      <TableHead>Anterior</TableHead>
+                      <TableHead>Nuevo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customAttrChanges.map((change) => (
+                      <TableRow key={`${log.id}-attr-${change.key}`}>
+                        <TableCell className="font-medium">
+                          {change.key}
+                        </TableCell>
+                        <TableCell className="max-w-90 break-all text-muted-foreground">
+                          {toDisplayValue("attr_before", change.before)}
+                        </TableCell>
+                        <TableCell className="max-w-90 break-all">
+                          {toDisplayValue("attr_after", change.after)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               ),
             },
           ]}
