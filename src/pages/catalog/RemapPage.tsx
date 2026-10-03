@@ -58,14 +58,14 @@ export default function RemapPage() {
   const { data, isLoading } = usePendingRemap()
   const resolve = useResolveRemap()
   // itemId -> string value (undefined = untouched)
-  const [values, setValues] = useState<Record<number, string>>({})
+  const [values, setValues] = useState<Record<string, string>>({})
 
   const touched = Object.keys(values).length
 
   const handleSubmit = async () => {
     const assignments = Object.entries(values).map(([id, raw]) => {
-      const v = raw === '' ? null : raw === 'true' ? true : raw === 'false' ? false : raw
-      return { id: Number(id), value: v }
+      const valor = raw === '' ? null : raw === 'true' ? true : raw === 'false' ? false : raw
+      return { id, valor }
     })
     if (assignments.length === 0) {
       toast({ variant: 'warning', title: 'Nada que guardar', description: 'Asigna un valor a al menos un producto.' })
@@ -99,7 +99,7 @@ export default function RemapPage() {
           icon={<CheckCircle2 className="h-10 w-10 text-success" />}
           heading="No hay valores pendientes"
           description="Todos los valores de atributos son compatibles con su tipo."
-          action={{ label: 'Ir a categorías', onClick: () => navigate('/categories') }}
+          action={{ label: 'Ir a categorías', onClick: () => navigate('/categorias') }}
         />
       ) : (
         <>

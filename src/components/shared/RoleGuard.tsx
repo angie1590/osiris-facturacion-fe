@@ -8,7 +8,7 @@ interface Props {
 
 export function RoleGuard({ roles }: Props) {
   const { user } = useAuth()
-  if (!user) return <Navigate to="/login" replace />
-  if (!roles.includes(user.role)) return <Navigate to="/403" replace />
+  if (!user) return <Navigate to="/iniciar-sesion" replace />
+  if (!roles.includes(user.role)) return <Navigate to="/prohibido" replace />
   return <Outlet />
 }

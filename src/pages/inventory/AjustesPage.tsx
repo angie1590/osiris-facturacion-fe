@@ -127,7 +127,7 @@ export default function AjustesPage() {
         title="Ajustes de Inventario"
         actions={
           canCreate && (
-            <Button onClick={() => navigate("/inventory/ajustes/new")}>
+            <Button onClick={() => navigate("/inventario/ajustes/nuevo")}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo ajuste
             </Button>

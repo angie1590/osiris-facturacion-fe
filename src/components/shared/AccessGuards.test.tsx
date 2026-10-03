@@ -38,8 +38,8 @@ function renderProtectedRoute() {
   render(
     <MemoryRouter initialEntries={["/privado"]}>
       <Routes>
-        <Route path="/login" element={<p>Login</p>} />
-        <Route path="/change-password" element={<p>Cambiar clave</p>} />
+        <Route path="/iniciar-sesion" element={<p>Login</p>} />
+        <Route path="/cambiar-contrasena" element={<p>Cambiar clave</p>} />
         <Route element={<ProtectedRoute />}>
           <Route path="/privado" element={<p>Contenido privado</p>} />
         </Route>
@@ -55,8 +55,8 @@ function renderRoleGuard(role: UserRole | null, allowedRoles: UserRole[]) {
   render(
     <MemoryRouter initialEntries={["/administracion"]}>
       <Routes>
-        <Route path="/login" element={<p>Login</p>} />
-        <Route path="/403" element={<p>Acceso denegado</p>} />
+        <Route path="/iniciar-sesion" element={<p>Login</p>} />
+        <Route path="/prohibido" element={<p>Acceso denegado</p>} />
         <Route element={<RoleGuard roles={allowedRoles} />}>
           <Route path="/administracion" element={<p>Administración</p>} />
         </Route>

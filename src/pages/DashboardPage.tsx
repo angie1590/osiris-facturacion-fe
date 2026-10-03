@@ -184,7 +184,7 @@ export default function DashboardPage() {
               </CardTitle>
               {canViewStockReports && (
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/products?bajo_stock=true">
+                  <Link to="/productos?bajo_stock=true">
                     Ver todos <ArrowRight className="ml-1 h-3.5 w-3.5" />
                   </Link>
                 </Button>
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                     <TableRow key={p.id}>
                       <TableCell>
                         <Link
-                          to={`/products/${p.id}`}
+                          to={`/productos?detalle=${p.id}`}
                           className="font-medium hover:underline text-sm"
                         >
                           {p.name}
@@ -230,7 +230,7 @@ export default function DashboardPage() {
               Movimientos recientes
             </CardTitle>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/reports">
+              <Link to="/reportes/resumen">
                 <BarChart3 className="mr-1 h-3.5 w-3.5" />
                 Ver reportes
               </Link>

@@ -117,7 +117,7 @@ export default function BajasPage() {
         title="Bajas de Inventario"
         actions={
           canCreate && (
-            <Button onClick={() => navigate("/inventory/bajas/new")}>
+            <Button onClick={() => navigate("/inventario/bajas/nuevo")}>
               <Plus className="mr-2 h-4 w-4" />
               Nueva baja
             </Button>

@@ -226,7 +226,7 @@ export default function EgresosPage() {
         title="Egresos"
         actions={
           canCreate && (
-            <Button onClick={() => navigate("/inventory/egresos/new")}>
+            <Button onClick={() => navigate("/inventario/egresos/nuevo")}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo egreso
             </Button>

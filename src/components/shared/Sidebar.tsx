@@ -51,7 +51,6 @@ interface NavItem {
   hideInSidebar?: boolean;
 }
 
-type CollapsibleSection = Exclude<Section, "principal">;
 type AnalysisGroupId =
   | "tributario-sri"
   | "ventas"
@@ -75,14 +74,14 @@ type SectionLayoutEntry =
   | { type: "item"; to: string }
   | { type: "group"; id: SidebarGroupId };
 
+type CollapsibleSection = Exclude<Section, "principal">;
+
 const COLLAPSIBLE_SECTIONS: CollapsibleSection[] = [
-  "catalogo",
   "movimientos",
   "analisis",
   "admin",
 ];
 const ANALYSIS_GROUPS: AnalysisGroup[] = [
-  { id: "tributario-sri", label: "Tributario y SRI", icon: ReceiptText },
   { id: "ventas", label: "Análisis de ventas", icon: ChartColumnBig },
   { id: "compras", label: "Análisis de compras", icon: ChartColumnBig },
   { id: "inventario", label: "Análisis de inventario", icon: PackageSearch },
@@ -108,7 +107,7 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
     { type: "item", to: "/productos" },
     { type: "item", to: "/categorias" },
     { type: "item", to: "/atributos" },
-    { type: "item", to: "/catalogs" },
+    { type: "item", to: "/catalogos" },
     { type: "item", to: "/bodegas" },
     { type: "group", id: "catalogo-terceros" },
     { type: "group", id: "catalogo-config" },
@@ -124,17 +123,17 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   admin: [
     { type: "group", id: "admin-organizacion" },
     { type: "item", to: "/admin/medidas-tributarias" },
-    { type: "item", to: "/admin/users" },
-    { type: "item", to: "/admin/params" },
+    { type: "item", to: "/admin/usuarios" },
+    { type: "item", to: "/admin/parametros" },
   ],
 };
 const GROUP_CHILD_ORDER: Record<SidebarGroupId, string[]> = {
-  "catalogo-terceros": ["/customers", "/suppliers", "/personas"],
+  "catalogo-terceros": ["/clientes", "/proveedores", "/personas"],
   "catalogo-config": ["/categorias-atributos", "/impuestos"],
   "movimientos-inventario": [
-    "/inventory/ingresos",
-    "/inventory/egresos",
-    "/inventory/conteos",
+    "/inventario/ingresos",
+    "/inventario/egresos",
+    "/inventario/conteos",
   ],
   "admin-organizacion": [
     "/empresa",
@@ -165,7 +164,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "catalogo",
   },
   {
-    to: "/catalogs",
+    to: "/catalogos",
     label: "Catálogos",
     icon: ListChecks,
     roles: ["admin", "supervisor"],
@@ -226,7 +225,7 @@ export const NAV_ITEMS: NavItem[] = [
     sidebarGroup: "admin-organizacion",
   },
   {
-    to: "/suppliers",
+    to: "/proveedores",
     label: "Proveedores",
     icon: Truck,
     roles: ["admin", "operator", "supervisor"],
@@ -234,7 +233,7 @@ export const NAV_ITEMS: NavItem[] = [
     sidebarGroup: "catalogo-terceros",
   },
   {
-    to: "/customers",
+    to: "/clientes",
     label: "Clientes",
     icon: Contact,
     roles: ["admin", "operator", "supervisor"],
@@ -405,7 +404,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "movimientos",
   },
   {
-    to: "/inventory/ingresos",
+    to: "/inventario/ingresos",
     label: "Ingresos",
     icon: ArrowDownToLine,
     roles: ["admin", "supervisor"],
@@ -413,7 +412,7 @@ export const NAV_ITEMS: NavItem[] = [
     sidebarGroup: "movimientos-inventario",
   },
   {
-    to: "/inventory/egresos",
+    to: "/inventario/egresos",
     label: "Egresos",
     icon: ArrowUpFromLine,
     roles: ["admin", "operator", "supervisor"],
@@ -421,7 +420,7 @@ export const NAV_ITEMS: NavItem[] = [
     sidebarGroup: "movimientos-inventario",
   },
   {
-    to: "/inventory/conteos",
+    to: "/inventario/conteos",
     label: "Conteo",
     icon: ClipboardCheck,
     roles: ["admin", "operator", "supervisor"],
@@ -438,7 +437,7 @@ export const NAV_ITEMS: NavItem[] = [
     hideInSidebar: true,
   },
   {
-    to: "/reports",
+    to: "/reportes/resumen",
     label: "Reportes personalizados",
     icon: BarChart3,
     roles: ["admin", "supervisor"],
@@ -446,7 +445,7 @@ export const NAV_ITEMS: NavItem[] = [
     analysisGroup: "control",
   },
   {
-    to: "/audit",
+    to: "/auditoria",
     label: "Auditoría",
     icon: ClipboardList,
     roles: ["admin", "supervisor"],
@@ -454,7 +453,7 @@ export const NAV_ITEMS: NavItem[] = [
     analysisGroup: "control",
   },
   {
-    to: "/admin/users",
+    to: "/admin/usuarios",
     label: "Usuarios",
     icon: Users,
     roles: ["admin", "supervisor"],
@@ -468,7 +467,7 @@ export const NAV_ITEMS: NavItem[] = [
     section: "admin",
   },
   {
-    to: "/admin/params",
+    to: "/admin/parametros",
     label: "Parámetros",
     icon: Settings,
     roles: ["admin"],

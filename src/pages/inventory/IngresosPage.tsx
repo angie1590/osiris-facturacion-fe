@@ -197,7 +197,7 @@ export default function IngresosPage() {
         title="Ingresos"
         actions={
           canCreate && (
-            <Button onClick={() => navigate("/inventory/ingresos/new")}>
+            <Button onClick={() => navigate("/inventario/ingresos/nuevo")}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo ingreso
             </Button>

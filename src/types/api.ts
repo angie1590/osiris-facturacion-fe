@@ -2,6 +2,7 @@
 export type UserRole = "admin" | "operator" | "supervisor";
 export type ProductStatus = "active" | "inactive";
 export type AttributeDataType =
+  | "string"
   | "text"
   | "integer"
   | "decimal"
@@ -11,7 +12,7 @@ export type AttributeDataType =
   | "catalog";
 
 export interface Catalog {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   is_active: boolean;
@@ -21,8 +22,8 @@ export interface Catalog {
 }
 
 export interface CatalogValue {
-  id: number;
-  catalog_id: number;
+  id: string;
+  catalog_id: string;
   value: string;
   is_active: boolean;
 }
@@ -156,7 +157,7 @@ export interface CategoryAttribute {
   is_required: boolean;
   is_active: boolean;
   select_options: string[] | null;
-  catalog_id?: number | null;
+  catalog_id?: string | null;
   allow_negative?: boolean;
   inherited?: boolean;
   created_at: string;
@@ -167,7 +168,7 @@ export interface UpdateAttributePayload {
   data_type?: AttributeDataType;
   is_required?: boolean;
   select_options?: string[];
-  catalog_id?: number | null;
+  catalog_id?: string | null;
   allow_negative?: boolean;
 }
 
@@ -195,7 +196,7 @@ export interface CreateAttributePayload {
   data_type: AttributeDataType;
   is_required?: boolean;
   select_options?: string[];
-  catalog_id?: number | null;
+  catalog_id?: string | null;
   allow_negative?: boolean;
 }
 

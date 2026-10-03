@@ -40,7 +40,7 @@ export default function LoginPage() {
     setLoginError(null);
     try {
       const resp = await login(data.username, data.password);
-      navigate(resp.require_password_change ? "/change-password" : "/");
+      navigate(resp.require_password_change ? "/cambiar-contrasena" : "/");
     } catch (err: unknown) {
       const apiErr = err as {
         response?: {

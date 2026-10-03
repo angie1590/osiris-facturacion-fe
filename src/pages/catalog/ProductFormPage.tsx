@@ -37,7 +37,7 @@ export default function ProductFormPage() {
       <ProductForm
         product={isEdit ? product : undefined}
         layout="page"
-        onSuccess={(saved) => navigate(`/products/${saved.id}`)}
+        onSuccess={(saved) => navigate(`/productos?detalle=${saved.id}`)}
         onCancel={() => navigate(-1)}
       />
     </div>

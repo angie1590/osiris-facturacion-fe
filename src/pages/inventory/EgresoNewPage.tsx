@@ -881,7 +881,7 @@ export default function EgresoNewPage() {
         setCreatedDocument(doc);
         return;
       }
-      navigate(`/inventory/egresos/${doc.id}`);
+      navigate(`/inventario/egresos/${doc.id}`);
     } catch (err: unknown) {
       setFormError(
         getApiErrorMessage(err, "Error al crear el egreso", {
@@ -1513,7 +1513,7 @@ export default function EgresoNewPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate("/inventory/egresos")}
+              onClick={() => navigate("/inventario/egresos")}
             >
               No
             </Button>
@@ -1526,7 +1526,7 @@ export default function EgresoNewPage() {
                   "_blank",
                   "noopener,noreferrer",
                 );
-                navigate("/inventory/egresos");
+                navigate("/inventario/egresos");
               }}
             >
               Sí, imprimir

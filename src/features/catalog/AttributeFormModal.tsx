@@ -19,18 +19,18 @@ import type { AttributeDataType } from '@/types/api'
 
 const AUTO_CATALOG = '__auto__'
 
-const DATA_TYPES: AttributeDataType[] = ['text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']
+const DATA_TYPES: AttributeDataType[] = ['string', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']
 export const DATA_TYPE_LABELS: Record<AttributeDataType, string> = {
-  text: 'Texto', integer: 'Entero', decimal: 'Decimal', date: 'Fecha',
+  string: 'Texto', text: 'Texto', integer: 'Entero', decimal: 'Decimal', date: 'Fecha',
   boolean: 'Sí / No', select: 'Lista (opciones fijas)', catalog: 'Catálogo (lista maestra)',
 }
 
 const schema = z.object({
   name: z.string().min(1, 'Requerido'),
-  data_type: z.enum(['text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']),
+  data_type: z.enum(['string', 'text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']),
   is_required: z.boolean(),
   select_options_raw: z.string().optional(),
-  catalog_id: z.number().optional(),
+  catalog_id: z.string().optional(),
   allow_negative: z.boolean().optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -45,7 +45,7 @@ export function AttributeFormModal({ categoryId, onClose }: { categoryId: number
 
   const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { data_type: 'text', is_required: false, allow_negative: false },
+    defaultValues: { data_type: 'string', is_required: false, allow_negative: false },
   })
 
   const dataType = watch('data_type')
@@ -54,7 +54,7 @@ export function AttributeFormModal({ categoryId, onClose }: { categoryId: number
   const onSubmit = async (data: FormData) => {
     setFormError(null)
     // catalog: '__auto__' → send no catalog_id (backend auto-creates the plural); otherwise the chosen id.
-    const catalogId = data.data_type === 'catalog' && catalogChoice !== AUTO_CATALOG ? Number(catalogChoice) : undefined
+    const catalogId = data.data_type === 'catalog' && catalogChoice !== AUTO_CATALOG ? catalogChoice : undefined
     try {
       const payload = {
         name: data.name,
@@ -90,7 +90,7 @@ export function AttributeFormModal({ categoryId, onClose }: { categoryId: number
             </FormField>
             <div className="space-y-1.5">
               <Label>Tipo de dato</Label>
-              <Select defaultValue="text" onValueChange={(v) => setValue('data_type', v as AttributeDataType)}>
+              <Select defaultValue="string" onValueChange={(v) => setValue('data_type', v as AttributeDataType)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DATA_TYPES.map((t) => <SelectItem key={t} value={t}>{DATA_TYPE_LABELS[t]}</SelectItem>)}

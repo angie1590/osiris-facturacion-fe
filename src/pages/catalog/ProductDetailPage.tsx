@@ -263,7 +263,7 @@ export default function ProductDetailPage() {
 
       <div className="flex gap-2">
         {canEdit && (
-          <Button onClick={() => navigate(`/products/${product.id}/edit`)}>
+          <Button onClick={() => navigate(`/productos?editar=${product.id}`)}>
             <Pencil className="mr-2 h-4 w-4" />
             Editar
           </Button>

@@ -254,11 +254,11 @@ export function DocumentDetail({
           size="icon"
           onClick={() => {
             if (doc.doc_type === "IN") {
-              navigate("/inventory/ingresos");
+              navigate("/inventario/ingresos");
               return;
             }
             if (doc.doc_type === "EG") {
-              navigate("/inventory/egresos");
+              navigate("/inventario/egresos");
               return;
             }
             navigate(-1);

@@ -62,7 +62,7 @@ export default function ChangePasswordPage() {
         title: "Contraseña actualizada",
         description: "Ingresá con tu nueva contraseña.",
       });
-      navigate("/login", { replace: true });
+      navigate("/iniciar-sesion", { replace: true });
     } catch (err: unknown) {
       const resp = (
         err as {

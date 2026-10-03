@@ -79,7 +79,7 @@ export default function BajaNewPage() {
         title: "Baja creada",
         description: `Baja ${doc.number} creada, pendiente de aprobación.`,
       });
-      navigate(`/inventory/bajas/${doc.id}`);
+      navigate(`/inventario/bajas/${doc.id}`);
     } catch (err: unknown) {
       setFormError(
         getApiErrorMessage(err, "Error al crear la baja", {

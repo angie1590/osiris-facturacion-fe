@@ -33,12 +33,12 @@ describe("Sidebar NAV_ITEMS", () => {
       to: "/empresa",
     });
     expect(INVENTORY_LEGACY_REDIRECTS).toContainEqual({
-      from: "/inventory/bajas/new",
-      to: "/inventory/egresos/new",
+      from: "/inventario/bajas/nuevo",
+      to: "/inventario/egresos/nuevo",
     });
     expect(INVENTORY_LEGACY_REDIRECTS).toContainEqual({
-      from: "/inventory/ajustes/new",
-      to: "/inventory/ingresos/new",
+      from: "/inventario/ajustes/nuevo",
+      to: "/inventario/ingresos/nuevo",
     });
   });
 
@@ -49,15 +49,15 @@ describe("Sidebar NAV_ITEMS", () => {
 
     expect(operatorRoutes).toContain("/ventas");
     expect(operatorRoutes).toContain("/cuentas-por-cobrar");
-    expect(operatorRoutes).toContain("/inventory/egresos");
+    expect(operatorRoutes).toContain("/inventario/egresos");
     expect(operatorRoutes).not.toContain("/compras");
     expect(operatorRoutes).not.toContain("/empresa");
-    expect(operatorRoutes).not.toContain("/reports");
-    expect(operatorRoutes).not.toContain("/admin/users");
+    expect(operatorRoutes).not.toContain("/reportes/resumen");
+    expect(operatorRoutes).not.toContain("/admin/usuarios");
   });
 
   it("reserva parámetros exclusivamente para administradores", () => {
-    const params = NAV_ITEMS.find((item) => item.to === "/admin/params");
+    const params = NAV_ITEMS.find((item) => item.to === "/admin/parametros");
     expect(params?.roles).toEqual(["admin"]);
   });
 });

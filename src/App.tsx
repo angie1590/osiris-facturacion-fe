@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
 import { RoleGuard } from "@/components/shared/RoleGuard";
@@ -10,6 +10,7 @@ import NotFound from "@/pages/NotFound";
 import {
   INVENTORY_LEGACY_REDIRECTS,
   MANAGEMENT_LEGACY_REDIRECTS,
+  getSpanishRouteRedirect,
 } from "@/lib/route-redirects";
 
 // Auth pages
@@ -22,7 +23,7 @@ const ChangePasswordPage = lazy(
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
 const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
-const CategoriasCanonicasPage = lazy(() => import("@/pages/CategoriasPage"));
+const CategoriasPage = lazy(() => import("@/pages/CategoriasPage"));
 const AtributosPage = lazy(() => import("@/pages/AtributosPage"));
 const CategoriasAtributosPage = lazy(
   () => import("@/pages/CategoriasAtributosPage"),
@@ -78,12 +79,6 @@ const ReporteVendedoresPage = lazy(
   () => import("@/pages/ReporteVendedoresPage"),
 );
 const DocumentosSRIPage = lazy(() => import("@/pages/DocumentosSRIPage"));
-const CategoriesPage = lazy(() => import("@/pages/catalog/CategoriesPage"));
-const ProductsPage = lazy(() => import("@/pages/catalog/ProductsPage"));
-const ProductDetailPage = lazy(
-  () => import("@/pages/catalog/ProductDetailPage"),
-);
-const ProductFormPage = lazy(() => import("@/pages/catalog/ProductFormPage"));
 const RecategorizePage = lazy(() => import("@/pages/catalog/RecategorizePage"));
 const CatalogsPage = lazy(() => import("@/pages/catalog/CatalogsPage"));
 const SuppliersPage = lazy(() => import("@/pages/catalog/SuppliersPage"));
@@ -122,6 +117,19 @@ function PageLoader() {
   );
 }
 
+function LegacyRouteRedirect() {
+  const { pathname, search, hash } = useLocation();
+  const target = getSpanishRouteRedirect(pathname);
+  if (!target) return <NotFound />;
+  const querySeparator = target.includes("?") ? "&" : "?";
+  return (
+    <Navigate
+      to={`${target}${search ? `${querySeparator}${search.slice(1)}` : ""}${hash}`}
+      replace
+    />
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -130,8 +138,10 @@ export default function App() {
           <Routes>
             {/* Auth routes */}
             <Route element={<AuthLayout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/change-password" element={<ChangePasswordPage />} />
+              <Route path="/iniciar-sesion" element={<LoginPage />} />
+              <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
+              <Route path="/login" element={<Navigate to="/iniciar-sesion" replace />} />
+              <Route path="/change-password" element={<Navigate to="/cambiar-contrasena" replace />} />
             </Route>
 
             {/* Protected app routes */}
@@ -142,7 +152,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/inventory/egresos/:id/print"
+                  path="/inventario/egresos/:id/imprimir"
                   element={<EgresoPrintPage />}
                 />
               </Route>
@@ -156,6 +166,9 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
+                <Route path="/clientes" element={<CustomersPage />} />
+                <Route path="/proveedores" element={<SuppliersPage />} />
+                <Route path="/prohibido" element={<Forbidden />} />
                 <Route path="/ventas" element={<VentasPage />} />
                 <Route
                   path="/cuentas-por-cobrar"
@@ -165,8 +178,11 @@ export default function App() {
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
                   <Route
                     path="/categorias"
-                    element={<CategoriasCanonicasPage />}
+                    element={<CategoriasPage />}
                   />
+                  <Route path="/catalogos" element={<CatalogsPage />} />
+                  <Route path="/recategorizar" element={<RecategorizePage />} />
+                  <Route path="/remapeos" element={<RemapPage />} />
                   <Route path="/atributos" element={<AtributosPage />} />
                   <Route
                     path="/categorias-atributos"
@@ -244,41 +260,20 @@ export default function App() {
                   />
                 </Route>
 
-                {/* Categories - all roles can view; write is gated in-page (admin + supervisor) */}
-                <Route path="/categories" element={<CategoriesPage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/suppliers" element={<SuppliersPage />} />
-                <Route path="/customers" element={<CustomersPage />} />
-                <Route path="/products/new" element={<ProductFormPage />} />
-                <Route path="/products/:id" element={<ProductDetailPage />} />
-                <Route
-                  path="/products/:id/edit"
-                  element={<ProductFormPage />}
-                />
-                {/* Recategorization + attribute remap - admin + supervisor */}
-                <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
-                  <Route path="/recategorize" element={<RecategorizePage />} />
-                  <Route path="/remap" element={<RemapPage />} />
-                </Route>
-                {/* Master catalogs - admin + supervisor */}
-                <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
-                  <Route path="/catalogs" element={<CatalogsPage />} />
-                </Route>
-
                 {/* Movimientos de ingreso no comerciales: admin + supervisor */}
                 <Route
                   element={<RoleGuard roles={["admin", "supervisor"]} />}
                 >
                   <Route
-                    path="/inventory/ingresos"
+                    path="/inventario/ingresos"
                     element={<IngresosPage />}
                   />
                   <Route
-                    path="/inventory/ingresos/new"
+                    path="/inventario/ingresos/nuevo"
                     element={<IngresoNewPage />}
                   />
                   <Route
-                    path="/inventory/ingresos/:id"
+                    path="/inventario/ingresos/:id"
                     element={<IngresoDetailPage />}
                   />
                   {INVENTORY_LEGACY_REDIRECTS.map(({ from, to }) => (
@@ -291,23 +286,23 @@ export default function App() {
                 </Route>
 
                 {/* Egresos y conteos - todos los roles */}
-                <Route path="/inventory/egresos" element={<EgresosPage />} />
+                <Route path="/inventario/egresos" element={<EgresosPage />} />
                 <Route
-                  path="/inventory/egresos/new"
+                  path="/inventario/egresos/nuevo"
                   element={<EgresoNewPage />}
                 />
                 <Route
-                  path="/inventory/egresos/:id"
+                  path="/inventario/egresos/:id"
                   element={<EgresoDetailPage />}
                 />
                 <Route
-                  path="/inventory/conteos/new"
+                  path="/inventario/conteos/nuevo"
                   element={<ConteoNewPage />}
                 />
 
-                <Route path="/inventory/conteos" element={<ConteosPage />} />
+                <Route path="/inventario/conteos" element={<ConteosPage />} />
                 <Route
-                  path="/inventory/conteos/:id"
+                  path="/inventario/conteos/:id"
                   element={<ConteoDetailPage />}
                 />
 
@@ -319,8 +314,8 @@ export default function App() {
 
                 {/* Reports + Audit - admin + supervisor */}
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
-                  <Route path="/reports/*" element={<ReportsPage />} />
-                  <Route path="/audit" element={<AuditPage />} />
+                  <Route path="/reportes/resumen/*" element={<ReportsPage />} />
+                  <Route path="/auditoria" element={<AuditPage />} />
                 </Route>
 
                 {/* Admin */}
@@ -333,15 +328,15 @@ export default function App() {
                       element={<Navigate to={to} replace />}
                     />
                   ))}
-                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/usuarios" element={<AdminUsersPage />} />
                 </Route>
                 <Route element={<RoleGuard roles={["admin"]} />}>
-                  <Route path="/admin/params" element={<AdminParamsPage />} />
+                  <Route path="/admin/parametros" element={<AdminParamsPage />} />
                 </Route>
+                <Route path="*" element={<LegacyRouteRedirect />} />
               </Route>
             </Route>
 
-            <Route path="/403" element={<Forbidden />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

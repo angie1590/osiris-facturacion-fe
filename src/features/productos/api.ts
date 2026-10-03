@@ -15,9 +15,11 @@ export interface CategoriaOption {
 
 export interface ImpuestoOption {
   id: string;
+  tipo_impuesto: "IVA" | "ICE" | "IRBPNR";
   descripcion: string;
   codigo_sri: string;
   porcentaje_iva?: string | null;
+  tarifa_ad_valorem?: string | null;
 }
 
 export interface ProductoCreateInput {
@@ -49,7 +51,15 @@ export interface ProveedorSociedadProducto {
   nombre_comercial: string | null;
 }
 
-export interface ProductoDetalle extends ProductoCreateInput {
+export interface ProductoImpuestoDetalle {
+  id: string;
+  tipo_impuesto: "IVA" | "ICE";
+  nombre: string;
+  codigo: string;
+  porcentaje: string;
+}
+
+export interface ProductoDetalle extends Omit<ProductoCreateInput, "impuesto_catalogo_ids"> {
   id: string;
   cantidad: string;
   permite_fracciones: boolean;
@@ -57,6 +67,7 @@ export interface ProductoDetalle extends ProductoCreateInput {
   bodegas: BodegaStock[];
   proveedores_persona: ProveedorPersonaProducto[];
   proveedores_sociedad: ProveedorSociedadProducto[];
+  impuestos: ProductoImpuestoDetalle[];
 }
 
 export interface BodegaStock {
@@ -83,6 +94,13 @@ export interface CategoriaAtributo {
   valor_default: string | null;
 }
 
+export interface CatalogoValorOption {
+  id: string;
+  catalog_id: string;
+  value: string;
+  is_active: boolean;
+}
+
 interface ProductPage {
   items: ProductoListado[];
   meta: { total: number; limit: number; offset: number; page: number; page_count: number };
@@ -107,6 +125,20 @@ export async function getImpuestosActivos() {
     params: { limit: 1000, offset: 0 },
   });
   return response.data.items;
+}
+
+export async function getImpuestosPermitidos(tipo: "BIEN" | "SERVICIO") {
+  const response = await api.get<ImpuestoOption[]>("/productos/impuestos-disponibles", {
+    params: { tipo_producto: tipo },
+  });
+  return response.data;
+}
+
+export async function getValoresCatalogo(catalogId: string) {
+  const response = await api.get<CatalogoValorOption[]>(`/catalogos/${catalogId}/valores`, {
+    params: { include_inactive: false },
+  });
+  return response.data;
 }
 
 export async function createProducto(input: ProductoCreateInput) {

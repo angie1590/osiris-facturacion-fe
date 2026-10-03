@@ -680,7 +680,7 @@ export default function IngresoNewPage() {
         title: "Ingreso creado",
         description: `Ingreso ${doc.number} creado correctamente.`,
       });
-      navigate(`/inventory/ingresos/${doc.id}`);
+      navigate(`/inventario/ingresos/${doc.id}`);
     } catch (err: unknown) {
       setFormError(
         getApiErrorMessage(err, "Error al crear el ingreso", {

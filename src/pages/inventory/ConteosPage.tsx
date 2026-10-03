@@ -97,7 +97,7 @@ export default function ConteosPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => navigate(`/inventory/conteos/${row.id}`)}
+            onClick={() => navigate(`/inventario/conteos/${row.id}`)}
           >
             <Eye className="h-4 w-4 text-primary" />
           </Button>
@@ -113,7 +113,7 @@ export default function ConteosPage() {
         description="Registra el conteo físico y luego aplica las diferencias al inventario."
         actions={
           canCreate && (
-            <Button onClick={() => navigate("/inventory/conteos/new")}>
+            <Button onClick={() => navigate("/inventario/conteos/nuevo")}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo conteo
             </Button>

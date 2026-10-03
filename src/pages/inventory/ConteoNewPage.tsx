@@ -68,7 +68,7 @@ export default function ConteoNewPage() {
         title: "Conteo guardado",
         description: `Conteo ${count.number} creado.`,
       });
-      navigate(`/inventory/conteos/${count.id}`);
+      navigate(`/inventario/conteos/${count.id}`);
     } catch (err: unknown) {
       setFormError(getApiErrorMessage(err, "No se pudo guardar el conteo"));
     }

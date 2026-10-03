@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +8,13 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, type Column } from "@/components/shared/DataTable";
 import api from "@/lib/api";
 import type { ProductoListado } from "@/features/productos/api";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getAtributosDeCategoria, getBodegas, getCategorias, getImpuestosActivos, createProducto, getProducto, getProveedoresPersona, getProveedoresSociedad, saveProductoBodega, saveProductoProveedores, saveValoresProducto, updateProducto } from "@/features/productos/api";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAtributosDeCategoria, getBodegas, getCategorias, getImpuestosPermitidos, getValoresCatalogo, createProducto, getProducto, getProveedoresPersona, getProveedoresSociedad, saveProductoBodega, saveProductoProveedores, saveValoresProducto, updateProducto } from "@/features/productos/api";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
 
 export default function ProductosPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function ProductosPage() {
   const [providersOpen, setProvidersOpen] = useState(false);
   const [selectedPersonProviders, setSelectedPersonProviders] = useState<string[]>([]);
   const [selectedCompanyProviders, setSelectedCompanyProviders] = useState<string[]>([]);
-  const [form, setForm] = useState({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN" as "BIEN" | "SERVICIO", pvp: "", categoria_id: "", impuesto_id: "" });
+  const [form, setForm] = useState({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN" as "BIEN" | "SERVICIO", pvp: "", categoria_id: "", impuesto_iva_id: "", impuesto_ice_id: "" });
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
@@ -31,9 +33,35 @@ export default function ProductosPage() {
     queryFn: async () => (await api.get<{ items: ProductoListado[] }>("/productos", { params: { limit: 1000, offset: 0, only_active: true } })).data,
   });
   const categorias = useQuery({ queryKey: ["categorias-canonicas"], queryFn: getCategorias });
-  const impuestos = useQuery({ queryKey: ["impuestos-canonicos"], queryFn: getImpuestosActivos });
+  const impuestos = useQuery({ queryKey: ["impuestos-producto", form.tipo], queryFn: () => getImpuestosPermitidos(form.tipo), enabled: open });
+  const impuestosIva = (impuestos.data ?? []).filter((item) => item.tipo_impuesto === "IVA");
+  const impuestosIce = (impuestos.data ?? []).filter((item) => item.tipo_impuesto === "ICE");
+  useEffect(() => {
+    if (!open || !impuestos.data) return;
+    setForm((current) => {
+      const ivaId = impuestosIva.some((item) => item.id === current.impuesto_iva_id)
+        ? current.impuesto_iva_id
+        : impuestosIva[0]?.id ?? "";
+      const iceId = impuestosIce.some((item) => item.id === current.impuesto_ice_id)
+        ? current.impuesto_ice_id
+        : "";
+      if (ivaId === current.impuesto_iva_id && iceId === current.impuesto_ice_id) return current;
+      return { ...current, impuesto_iva_id: ivaId, impuesto_ice_id: iceId };
+    });
+  }, [impuestos.data, impuestosIce, impuestosIva, open]);
   const categoryAttributes = useQuery({ queryKey: ["categoria-atributos-producto", form.categoria_id], queryFn: () => getAtributosDeCategoria(form.categoria_id), enabled: Boolean(form.categoria_id) });
-  const atributos = useQuery({ queryKey: ["atributos-canonicos"], queryFn: async () => (await api.get<{ items: { id: string; nombre: string; tipo_dato: string }[] }>("/atributos", { params: { limit: 1000, offset: 0, only_active: true } })).data.items });
+  const atributos = useQuery({ queryKey: ["atributos-canonicos"], queryFn: async () => (await api.get<{ items: { id: string; nombre: string; tipo_dato: string; select_options?: string[] | null; catalog_id?: string | null; allow_negative?: boolean; min_value?: string | null; max_value?: string | null }[] }>("/atributos", { params: { limit: 1000, offset: 0, only_active: true } })).data.items });
+  const catalogIds = [...new Set((categoryAttributes.data ?? []).flatMap((mapping) => {
+    const attribute = atributos.data?.find((item) => item.id === mapping.atributo_id);
+    return attribute?.tipo_dato === "catalog" && attribute.catalog_id ? [attribute.catalog_id] : [];
+  }))];
+  const catalogValueQueries = useQueries({
+    queries: catalogIds.map((catalogId) => ({
+      queryKey: ["catalogo-valores", catalogId],
+      queryFn: () => getValoresCatalogo(catalogId),
+      enabled: Boolean(form.categoria_id),
+    })),
+  });
   const create = useMutation({
     mutationFn: async () => {
       const producto = await createProducto({
@@ -43,7 +71,7 @@ export default function ProductosPage() {
       tipo: form.tipo,
       pvp: Number(form.pvp),
       categoria_ids: form.categoria_id ? [form.categoria_id] : undefined,
-      impuesto_catalogo_ids: form.impuesto_id ? [form.impuesto_id] : [],
+      impuesto_catalogo_ids: [form.impuesto_iva_id, form.impuesto_ice_id].filter(Boolean),
       usuario_auditoria: "frontend",
       });
       const values = Object.entries(attributeValues).filter(([, value]) => value !== "").map(([atributo_id, valor]) => ({ atributo_id, valor }));
@@ -52,19 +80,41 @@ export default function ProductosPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
-      setForm({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN", pvp: "", categoria_id: "", impuesto_id: "" });
+      setForm({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN", pvp: "", categoria_id: "", impuesto_iva_id: "", impuesto_ice_id: "" });
       setAttributeValues({});
       setOpen(false);
     },
   });
-  const update = useMutation({ mutationFn: () => updateProducto(editingId!, { nombre: form.nombre, descripcion: form.descripcion || undefined, codigo_barras: form.codigo_barras || undefined, tipo: form.tipo, pvp: Number(form.pvp) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["productos"] }); setOpen(false); setEditingId(null); } });
+  const update = useMutation({ mutationFn: () => updateProducto(editingId!, { nombre: form.nombre, descripcion: form.descripcion || undefined, codigo_barras: form.codigo_barras || undefined, tipo: form.tipo, pvp: Number(form.pvp), impuesto_catalogo_ids: [form.impuesto_iva_id, form.impuesto_ice_id].filter(Boolean) }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["productos"] }); queryClient.invalidateQueries({ queryKey: ["producto-canonico", editingId] }); setOpen(false); setEditingId(null); } });
   const detail = useQuery({ queryKey: ["producto-canonico", selectedId], queryFn: () => getProducto(selectedId!), enabled: Boolean(selectedId) });
   const warehouses = useQuery({ queryKey: ["bodegas-canonicas"], queryFn: getBodegas, enabled: warehouseOpen });
   const saveWarehouse = useMutation({ mutationFn: () => saveProductoBodega(selectedId!, warehouseId, Number(warehouseQuantity), Boolean(detail.data?.bodegas.some((item) => item.bodega_id === warehouseId))), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["producto-canonico", selectedId] }); setWarehouseOpen(false); } });
   const personProviders = useQuery({ queryKey: ["proveedores-persona-canonicos"], queryFn: getProveedoresPersona, enabled: providersOpen });
   const companyProviders = useQuery({ queryKey: ["proveedores-sociedad-canonicos"], queryFn: getProveedoresSociedad, enabled: providersOpen });
   const saveProviders = useMutation({ mutationFn: async () => { await saveProductoProveedores(selectedId!, "persona", selectedPersonProviders); await saveProductoProveedores(selectedId!, "sociedad", selectedCompanyProviders); }, onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["producto-canonico", selectedId] }); setProvidersOpen(false); } });
-  const openEdit = async (id: string) => { const product = await getProducto(id); setEditingId(id); setForm({ nombre: product.nombre, descripcion: product.descripcion ?? "", codigo_barras: product.codigo_barras ?? "", tipo: product.tipo, pvp: String(product.pvp), categoria_id: "", impuesto_id: "" }); setOpen(true); };
+  const openEdit = useCallback(async (id: string) => { const product = await getProducto(id); setEditingId(id); setForm({ nombre: product.nombre, descripcion: product.descripcion ?? "", codigo_barras: product.codigo_barras ?? "", tipo: product.tipo, pvp: String(product.pvp), categoria_id: "", impuesto_iva_id: product.impuestos.find((item) => item.tipo_impuesto === "IVA")?.id ?? "", impuesto_ice_id: product.impuestos.find((item) => item.tipo_impuesto === "ICE")?.id ?? "" }); setOpen(true); }, []);
+  useEffect(() => {
+    const createRequested = searchParams.get("accion") === "nuevo";
+    const editId = searchParams.get("editar");
+    const detailId = searchParams.get("detalle");
+    if (createRequested) {
+      setEditingId(null);
+      setForm({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN", pvp: "", categoria_id: "", impuesto_iva_id: "", impuesto_ice_id: "" });
+      setAttributeValues({});
+      setOpen(true);
+    } else if (editId) {
+      void openEdit(editId);
+    } else if (detailId) {
+      setSelectedId(detailId);
+    }
+    if (createRequested || editId || detailId) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("accion");
+      nextParams.delete("editar");
+      nextParams.delete("detalle");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [openEdit, searchParams, setSearchParams]);
   const productos = (data?.items ?? []).filter((producto) => producto.nombre.toLowerCase().includes(search.toLowerCase()));
   const columns: Column<ProductoListado>[] = [
     { key: "nombre", header: "Producto", cell: (row) => row.nombre, sortable: true, sortAccessor: (row) => row.nombre },
@@ -75,7 +125,7 @@ export default function ProductosPage() {
   ];
   return (
     <div>
-      <PageHeader title="Productos" description="Catálogo de productos del sistema integrado" actions={<Button onClick={() => { setEditingId(null); setOpen(true); }}><Plus className="mr-2 h-4 w-4" />Nuevo producto</Button>} />
+      <PageHeader title="Productos" description="Catálogo de productos del sistema integrado" actions={<Button onClick={() => { setEditingId(null); setForm({ nombre: "", descripcion: "", codigo_barras: "", tipo: "BIEN", pvp: "", categoria_id: "", impuesto_iva_id: "", impuesto_ice_id: "" }); setOpen(true); }}><Plus className="mr-2 h-4 w-4" />Nuevo producto</Button>} />
       <div className="relative mb-4 max-w-sm">
         <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar producto" />
@@ -84,19 +134,37 @@ export default function ProductosPage() {
       {detail.data && <DetailModal open={Boolean(selectedId)} onClose={() => setSelectedId(null)} title={detail.data.nombre} footer={<div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setSelectedId(null)}>Cerrar</Button><Button onClick={() => { setSelectedPersonProviders(detail.data!.proveedores_persona.map((item) => item.id)); setSelectedCompanyProviders(detail.data!.proveedores_sociedad.map((item) => item.id)); setProvidersOpen(true); }}>Gestionar proveedores</Button><Button onClick={() => setWarehouseOpen(true)}>Gestionar bodegas</Button></div>} sections={[{ title: "Datos del producto", fields: [{ label: "Tipo", value: detail.data.tipo }, { label: "PVP", value: `$ ${Number(detail.data.pvp).toFixed(2)}` }, { label: "Existencia", value: detail.data.cantidad }, { label: "Código de barras", value: detail.data.codigo_barras || "—" }, { label: "Descripción", value: detail.data.descripcion || "—", full: true }] }, ...(detail.data.atributos.length ? [{ title: "Atributos", fields: detail.data.atributos.map((item) => ({ label: item.atributo.nombre, value: item.valor ?? "—" })) }] : []), ...(detail.data.bodegas.length ? [{ title: "Existencias por bodega", fields: detail.data.bodegas.map((item) => ({ label: `${item.codigo_bodega} · ${item.nombre_bodega}`, value: item.cantidad })) }] : []), ...(detail.data.proveedores_persona.length ? [{ title: "Proveedores Persona", fields: detail.data.proveedores_persona.map((item) => ({ label: `${item.nombres} ${item.apellidos}`, value: item.nombre_comercial || "—" })) }] : []), ...(detail.data.proveedores_sociedad.length ? [{ title: "Proveedores Sociedad", fields: detail.data.proveedores_sociedad.map((item) => ({ label: item.razon_social, value: item.nombre_comercial || "—" })) }] : [])]} />}
       {detail.data && <DetailModal open={providersOpen} onClose={() => setProvidersOpen(false)} title={`Proveedores de ${detail.data.nombre}`} subtitle="Administra por separado proveedores persona y proveedores sociedad." footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setProvidersOpen(false)}>Cancelar</Button><Button onClick={() => saveProviders.mutate()} disabled={saveProviders.isPending}>{saveProviders.isPending ? "Guardando..." : "Guardar"}</Button></div>}><div className="grid gap-6 sm:grid-cols-2"><div><h3 className="mb-2 text-sm font-semibold">Proveedor Persona</h3>{(personProviders.data ?? []).map((item) => <label key={item.id} className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" checked={selectedPersonProviders.includes(item.id)} onChange={(event) => setSelectedPersonProviders(event.target.checked ? [...selectedPersonProviders, item.id] : selectedPersonProviders.filter((id) => id !== item.id))} />{item.nombre_comercial || item.persona_id}</label>)}</div><div><h3 className="mb-2 text-sm font-semibold">Proveedor Sociedad</h3>{(companyProviders.data ?? []).map((item) => <label key={item.id} className="flex items-center gap-2 py-1 text-sm"><input type="checkbox" checked={selectedCompanyProviders.includes(item.id)} onChange={(event) => setSelectedCompanyProviders(event.target.checked ? [...selectedCompanyProviders, item.id] : selectedCompanyProviders.filter((id) => id !== item.id))} />{item.razon_social}{item.nombre_comercial ? ` · ${item.nombre_comercial}` : ""}</label>)}</div></div></DetailModal>}
       {detail.data && <DetailModal open={warehouseOpen} onClose={() => setWarehouseOpen(false)} title={`Bodegas de ${detail.data.nombre}`} subtitle="Asigna el producto a una bodega o actualiza su existencia." footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setWarehouseOpen(false)}>Cancelar</Button><Button onClick={() => saveWarehouse.mutate()} disabled={saveWarehouse.isPending || !warehouseId || Number(warehouseQuantity) < 0}>{saveWarehouse.isPending ? "Guardando..." : "Guardar"}</Button></div>}><div className="space-y-4"><FormField label="Bodega" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={warehouseId} onChange={(event) => { const id = event.target.value; setWarehouseId(id); const current = detail.data?.bodegas.find((item) => item.bodega_id === id); setWarehouseQuantity(String(current?.cantidad ?? 0)); }}><option value="">Selecciona una bodega</option>{(warehouses.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.codigo_bodega} · {item.nombre_bodega}</option>)}</select></FormField><FormField label="Cantidad" required><Input type="number" min="0" step="0.01" value={warehouseQuantity} onChange={(event) => setWarehouseQuantity(event.target.value)} /></FormField></div></DetailModal>}
-      <DetailModal open={open} onClose={() => { setOpen(false); setEditingId(null); }} title={editingId ? "Editar producto" : "Nuevo producto"} subtitle={editingId ? "Actualiza los datos básicos del producto." : "Completa los datos del producto y selecciona al menos un impuesto."} footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={() => editingId ? update.mutate() : create.mutate()} disabled={create.isPending || update.isPending || !form.nombre || !form.pvp || (!editingId && !form.impuesto_id)}>{create.isPending || update.isPending ? "Guardando..." : "Guardar"}</Button></div>}>
+      <DetailModal open={open} onClose={() => { setOpen(false); setEditingId(null); }} title={editingId ? "Editar producto" : "Nuevo producto"} subtitle={editingId ? "Actualiza el producto y su perfil tributario." : "Completa los datos del producto y selecciona su perfil tributario."} footer={<div className="flex gap-2"><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button><Button onClick={() => editingId ? update.mutate() : create.mutate()} disabled={create.isPending || update.isPending || !form.nombre || !form.pvp || !form.impuesto_iva_id || impuestos.isLoading}>{create.isPending || update.isPending ? "Guardando..." : "Guardar"}</Button></div>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Nombre" required><Input value={form.nombre} onChange={(event) => setForm({ ...form, nombre: event.target.value })} /></FormField>
           <FormField label="Código de barras"><Input value={form.codigo_barras} onChange={(event) => setForm({ ...form, codigo_barras: event.target.value })} /></FormField>
           <FormField label="Tipo" required><select className="h-10 rounded-lg border border-input bg-white px-3 text-sm" value={form.tipo} onChange={(event) => setForm({ ...form, tipo: event.target.value as "BIEN" | "SERVICIO" })}><option value="BIEN">Bien</option><option value="SERVICIO">Servicio</option></select></FormField>
           <FormField label="PVP" required><Input type="number" min="0.01" step="0.01" value={form.pvp} onChange={(event) => setForm({ ...form, pvp: event.target.value })} /></FormField>
           <FormField label="Categoría"><select className="h-10 rounded-lg border border-input bg-white px-3 text-sm" value={form.categoria_id} onChange={(event) => setForm({ ...form, categoria_id: event.target.value })}><option value="">Sin categoría</option>{(categorias.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></FormField>
-          <FormField label="Impuesto" required><select className="h-10 rounded-lg border border-input bg-white px-3 text-sm" value={form.impuesto_id} onChange={(event) => setForm({ ...form, impuesto_id: event.target.value })}><option value="">Selecciona un impuesto</option>{(impuestos.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.descripcion} ({item.codigo_sri})</option>)}</select></FormField>
+          <FormField label="IVA" required><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={form.impuesto_iva_id} onChange={(event) => setForm({ ...form, impuesto_iva_id: event.target.value })}><option value="">Selecciona un IVA</option>{impuestosIva.map((item) => <option key={item.id} value={item.id}>{item.descripcion} ({item.codigo_sri})</option>)}</select></FormField>
+          {!impuestos.isLoading && impuestosIva.length === 0 && <p className="text-xs text-destructive">No hay IVA vigente configurado para esta empresa.</p>}
+          <FormField label="ICE"><select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={form.impuesto_ice_id} onChange={(event) => setForm({ ...form, impuesto_ice_id: event.target.value })}><option value="">Sin ICE</option>{impuestosIce.map((item) => <option key={item.id} value={item.id}>{item.descripcion} ({item.codigo_sri})</option>)}</select></FormField>
           <FormField label="Descripción" className="sm:col-span-2"><Input value={form.descripcion} onChange={(event) => setForm({ ...form, descripcion: event.target.value })} /></FormField>
           {categoryAttributes.data?.map((mapping) => {
             const attribute = atributos.data?.find((item) => item.id === mapping.atributo_id);
             if (!attribute) return null;
-            return <FormField key={mapping.atributo_id} label={`${attribute.nombre}${mapping.obligatorio ? " *" : ""}`} className="sm:col-span-2"><Input type={attribute.tipo_dato === "integer" || attribute.tipo_dato === "decimal" ? "number" : attribute.tipo_dato === "date" ? "date" : "text"} value={attributeValues[mapping.atributo_id] ?? mapping.valor_default ?? ""} onChange={(event) => setAttributeValues({ ...attributeValues, [mapping.atributo_id]: event.target.value })} /></FormField>;
+            const value = attributeValues[mapping.atributo_id] ?? mapping.valor_default ?? "";
+            const setValue = (nextValue: string) => setAttributeValues((previous) => ({ ...previous, [mapping.atributo_id]: nextValue }));
+            const catalogIndex = attribute.catalog_id ? catalogIds.indexOf(attribute.catalog_id) : -1;
+            const catalogValues = catalogIndex >= 0 ? catalogValueQueries[catalogIndex]?.data ?? [] : [];
+            let control;
+            if (attribute.tipo_dato === "select") {
+              control = <select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={value} onChange={(event) => setValue(event.target.value)}><option value="">Selecciona una opción</option>{(attribute.select_options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+            } else if (attribute.tipo_dato === "catalog") {
+              control = <select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={value} onChange={(event) => setValue(event.target.value)}><option value="">Selecciona un valor</option>{catalogValues.map((option) => <option key={option.id} value={option.value}>{option.value}</option>)}</select>;
+            } else if (attribute.tipo_dato === "boolean") {
+              control = <select className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm" value={value} onChange={(event) => setValue(event.target.value)}><option value="">Selecciona</option><option value="true">Sí</option><option value="false">No</option></select>;
+            } else {
+              const numeric = attribute.tipo_dato === "integer" || attribute.tipo_dato === "decimal";
+              const minimum = numeric ? (attribute.min_value ?? (attribute.allow_negative ? undefined : "0")) : undefined;
+              control = <Input type={numeric ? "number" : attribute.tipo_dato === "date" ? "date" : "text"} min={minimum} max={numeric ? attribute.max_value ?? undefined : undefined} step={attribute.tipo_dato === "integer" ? "1" : attribute.tipo_dato === "decimal" ? "any" : undefined} value={value} onChange={(event) => setValue(event.target.value)} />;
+            }
+            return <FormField key={mapping.atributo_id} label={`${attribute.nombre}${mapping.obligatorio ? " *" : ""}`} className="sm:col-span-2">{control}</FormField>;
           })}
         </div>
       </DetailModal>

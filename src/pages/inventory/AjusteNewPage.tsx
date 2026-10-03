@@ -78,7 +78,7 @@ export default function AjusteNewPage() {
         title: "Ajuste creado",
         description: `Ajuste ${doc.number} creado, pendiente de aprobación.`,
       });
-      navigate(`/inventory/ajustes/${doc.id}`);
+      navigate(`/inventario/ajustes/${doc.id}`);
     } catch (err: unknown) {
       setFormError(
         getApiErrorMessage(err, "Error al crear el ajuste", {

@@ -18,14 +18,14 @@ import { pluralizeEs } from './pluralize'
 import { DATA_TYPE_LABELS } from './AttributeFormModal'
 import type { CategoryAttribute, AttributeDataType } from '@/types/api'
 
-const DATA_TYPES: AttributeDataType[] = ['text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']
+const DATA_TYPES: AttributeDataType[] = ['string', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']
 
 const schema = z.object({
   name: z.string().min(1, 'Requerido'),
-  data_type: z.enum(['text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']),
+  data_type: z.enum(['string', 'text', 'integer', 'decimal', 'date', 'boolean', 'select', 'catalog']),
   is_required: z.boolean(),
   select_options_raw: z.string().optional(),
-  catalog_id: z.number().optional(),
+  catalog_id: z.string().optional(),
   allow_negative: z.boolean().optional(),
 })
 type FormData = z.infer<typeof schema>
@@ -71,7 +71,7 @@ export function AttributeEditModal({ categoryId, attribute, onClose }: Props) {
 
   const onSubmit = async (data: FormData) => {
     setFormError(null)
-    const catalogId = data.data_type === 'catalog' && catalogChoice !== AUTO_CATALOG ? Number(catalogChoice) : undefined
+    const catalogId = data.data_type === 'catalog' && catalogChoice !== AUTO_CATALOG ? catalogChoice : undefined
     try {
       const payload = {
         name: data.name,

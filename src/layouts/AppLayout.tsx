@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useNavigate, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle } from "lucide-react";
 import { Sidebar } from "@/components/shared/Sidebar";
 import { Topbar } from "@/components/shared/Topbar";
@@ -9,7 +10,7 @@ import {
   buildEmpresaConfigurationStatus,
   useEmpresaPrincipal,
 } from "@/features/empresa/hooks";
-import { usePendingRecategorization } from "@/features/catalog/hooks";
+import { getConteoSinRecategorizar } from "@/features/categorias/api";
 import { usePendingRemap } from "@/features/catalog/remapHooks";
 import { useSessionTimer } from "@/hooks/use-session-timer";
 import { getSessionTimeoutMinutes } from "@/lib/api";
@@ -26,10 +27,12 @@ export default function AppLayout() {
   const empresaStatus = buildEmpresaConfigurationStatus(empresa);
   const showBanner = !empresaStatus.fiscalComplete;
   const canRecategorize = user?.role === "admin" || user?.role === "supervisor";
-  const { data: pendingProducts } = usePendingRecategorization();
-  const pendingRecategorization = canRecategorize
-    ? (pendingProducts?.length ?? 0)
-    : 0;
+  const { data: pendingRecategorization = 0 } = useQuery({
+    queryKey: ["recategorizacion-pendientes"],
+    queryFn: getConteoSinRecategorizar,
+    enabled: canRecategorize,
+    refetchInterval: 30_000,
+  });
   const { data: pendingRemap } = usePendingRemap();
   const remapCount = canRecategorize ? (pendingRemap?.total ?? 0) : 0;
   const timeoutMinutes = getSessionTimeoutMinutes();
@@ -39,7 +42,7 @@ export default function AppLayout() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/login");
+    navigate("/iniciar-sesion");
   };
 
   const { showWarning } = useSessionTimer(() => {
@@ -131,14 +134,13 @@ export default function AppLayout() {
         )}
 
         {pendingRecategorization > 0 && canRecategorize && (
-          <div className="mx-5 mt-4 flex shrink-0 items-center gap-2 rounded-lg border border-amber-400/80 bg-amber-100/95 px-4 py-2.5 text-sm text-amber-900 shadow-token-sm">
+          <div className="mx-5 mt-4 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-400/80 bg-amber-100/95 px-4 py-2.5 text-sm text-amber-900 shadow-token-sm">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
-              Hay {pendingRecategorization} producto(s) sin recategorizar en
-              categorías "Sin clasificar".
+              Hay {pendingRecategorization} producto{pendingRecategorization === 1 ? "" : "s"} sin recategorizar en categorías "Sin clasificar".
             </span>
             <Link
-              to="/recategorize"
+              to="/recategorizar"
               className="font-semibold underline underline-offset-2 hover:no-underline"
             >
               Recategorizar ahora
@@ -154,7 +156,7 @@ export default function AppLayout() {
               cambio de tipo.
             </span>
             <Link
-              to="/remap"
+              to="/remapeos"
               className="font-semibold underline underline-offset-2 hover:no-underline"
             >
               Remapear ahora

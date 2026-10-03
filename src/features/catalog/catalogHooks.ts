@@ -4,17 +4,17 @@ import type { Catalog, CatalogValue } from '@/types/api'
 
 export function useCatalogs() {
   return useQuery({
-    queryKey: ['catalogs'],
-    queryFn: () => api.get<Catalog[]>('/catalogs').then((r) => r.data),
+    queryKey: ["catalogos"],
+    queryFn: () => api.get<Catalog[]>("/catalogos").then((r) => r.data),
   })
 }
 
-export function useCatalogValues(catalogId: number | null | undefined, includeInactive = true) {
+export function useCatalogValues(catalogId: string | null | undefined, includeInactive = true) {
   return useQuery({
-    queryKey: ['catalog-values', catalogId, includeInactive],
+    queryKey: ["catalogo-valores", catalogId, includeInactive],
     queryFn: () =>
       api
-        .get<CatalogValue[]>(`/catalogs/${catalogId}/values`, { params: { include_inactive: includeInactive } })
+        .get<CatalogValue[]>(`/catalogos/${catalogId}/valores`, { params: { include_inactive: includeInactive } })
         .then((r) => r.data),
     enabled: catalogId != null,
   })
@@ -24,36 +24,36 @@ export function useCreateCatalog() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: { name: string; description?: string }) =>
-      api.post<Catalog>('/catalogs', payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogs'] }),
+      api.post<Catalog>("/catalogos", payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["catalogos"] }),
   })
 }
 
 export function useUpdateCatalog() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; description?: string } }) =>
-      api.patch<Catalog>(`/catalogs/${id}`, payload).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogs'] }),
+    mutationFn: ({ id, payload }: { id: string; payload: { name?: string; description?: string } }) =>
+      api.patch<Catalog>(`/catalogos/${id}`, payload).then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["catalogos"] }),
   })
 }
 
 export function useDeleteCatalog() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.delete(`/catalogs/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catalogs'] }),
+    mutationFn: (id: string) => api.delete(`/catalogos/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["catalogos"] }),
   })
 }
 
 export function useAddCatalogValue() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ catalogId, value }: { catalogId: number; value: string }) =>
-      api.post<CatalogValue>(`/catalogs/${catalogId}/values`, { value }).then((r) => r.data),
+    mutationFn: ({ catalogId, value }: { catalogId: string; value: string }) =>
+      api.post<CatalogValue>(`/catalogos/${catalogId}/valores`, { value }).then((r) => r.data),
     onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ['catalog-values', v.catalogId] })
-      qc.invalidateQueries({ queryKey: ['catalogs'] })
+      qc.invalidateQueries({ queryKey: ["catalogo-valores", v.catalogId] })
+      qc.invalidateQueries({ queryKey: ["catalogos"] })
     },
   })
 }
@@ -61,22 +61,22 @@ export function useAddCatalogValue() {
 export function useUpdateCatalogValue() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ catalogId, valueId, value }: { catalogId: number; valueId: number; value: string }) =>
-      api.patch<CatalogValue>(`/catalogs/${catalogId}/values/${valueId}`, { value }).then((r) => r.data),
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ['catalog-values', v.catalogId] }),
+    mutationFn: ({ catalogId, valueId, value }: { catalogId: string; valueId: string; value: string }) =>
+      api.patch<CatalogValue>(`/catalogos/${catalogId}/valores/${valueId}`, { value }).then((r) => r.data),
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["catalogo-valores", v.catalogId] }),
   })
 }
 
 export function useToggleCatalogValue() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ catalogId, valueId, active }: { catalogId: number; valueId: number; active: boolean }) =>
+    mutationFn: ({ catalogId, valueId, active }: { catalogId: string; valueId: string; active: boolean }) =>
       api
-        .post<CatalogValue>(`/catalogs/${catalogId}/values/${valueId}/${active ? 'reactivate' : 'deactivate'}`)
+        .post<CatalogValue>(`/catalogos/${catalogId}/valores/${valueId}/${active ? "reactivate" : "deactivate"}`)
         .then((r) => r.data),
     onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ['catalog-values', v.catalogId] })
-      qc.invalidateQueries({ queryKey: ['catalogs'] })
+      qc.invalidateQueries({ queryKey: ["catalogo-valores", v.catalogId] })
+      qc.invalidateQueries({ queryKey: ["catalogos"] })
     },
   })
 }
