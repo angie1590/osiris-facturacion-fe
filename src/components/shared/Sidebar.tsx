@@ -106,7 +106,6 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   catalogo: [
     { type: "item", to: "/productos" },
     { type: "item", to: "/categorias" },
-    { type: "item", to: "/atributos" },
     { type: "item", to: "/catalogos" },
     { type: "item", to: "/bodegas" },
     { type: "group", id: "catalogo-terceros" },
@@ -129,16 +128,13 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
 };
 const GROUP_CHILD_ORDER: Record<SidebarGroupId, string[]> = {
   "catalogo-terceros": ["/clientes", "/proveedores", "/personas"],
-  "catalogo-config": ["/categorias-atributos", "/impuestos"],
+  "catalogo-config": ["/impuestos"],
   "movimientos-inventario": [
     "/inventario/ingresos",
     "/inventario/egresos",
     "/inventario/conteos",
   ],
-  "admin-organizacion": [
-    "/empresa",
-    "/configuracion-operativa",
-  ],
+  "admin-organizacion": ["/empresa", "/configuracion-operativa"],
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -171,23 +167,8 @@ export const NAV_ITEMS: NavItem[] = [
     section: "catalogo",
   },
   {
-    to: "/atributos",
-    label: "Atributos",
-    icon: ListChecks,
-    roles: ["admin", "supervisor"],
-    section: "catalogo",
-  },
-  {
     to: "/impuestos",
     label: "Impuestos SRI",
-    icon: ListChecks,
-    roles: ["admin", "supervisor"],
-    section: "catalogo",
-    sidebarGroup: "catalogo-config",
-  },
-  {
-    to: "/categorias-atributos",
-    label: "Atributos por categoría",
     icon: ListChecks,
     roles: ["admin", "supervisor"],
     section: "catalogo",
@@ -806,7 +787,9 @@ function GroupedSectionItems({
         ? null
         : manualExpanded;
   const expandedGroup: SidebarGroupId | null =
-    manualExpanded === null ? activeGroup ?? preferredExpandedGroup : preferredExpandedGroup;
+    manualExpanded === null
+      ? (activeGroup ?? preferredExpandedGroup)
+      : preferredExpandedGroup;
 
   return (
     <div className="space-y-1">
@@ -933,7 +916,9 @@ function AnalysisGroupedItems({
         ? null
         : manualExpanded;
   const expandedGroup: AnalysisGroupId | null =
-    manualExpanded === null ? activeAnalysisGroup ?? preferredExpandedGroup : preferredExpandedGroup;
+    manualExpanded === null
+      ? (activeAnalysisGroup ?? preferredExpandedGroup)
+      : preferredExpandedGroup;
 
   return (
     <div className="space-y-2">

@@ -12,7 +12,12 @@ interface ApiErrorShape {
       detail?:
         | string
         | { code?: string; message?: string; msg?: string }
-        | Array<{ code?: string; message?: string; msg?: string }>;
+        | Array<{
+            code?: string;
+            message?: string;
+            msg?: string;
+            loc?: Array<string | number>;
+          }>;
     };
   };
 }
@@ -63,4 +68,16 @@ export function getApiErrorMessage(
     return codeMessages[parsed.code];
   }
   return parsed.message ?? firstFieldError ?? fallback;
+}
+
+export function getApiFieldErrors(err: unknown): Record<string, string> {
+  const data = (err as ApiErrorShape)?.response?.data;
+  const fields = { ...data?.errors };
+  if (Array.isArray(data?.detail)) {
+    for (const issue of data.detail) {
+      const path = issue.loc?.filter((part) => part !== "body").join(".");
+      if (path) fields[path] = issue.msg ?? issue.message ?? "Dato invalido";
+    }
+  }
+  return fields;
 }

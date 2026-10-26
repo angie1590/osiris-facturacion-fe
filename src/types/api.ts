@@ -112,7 +112,7 @@ export interface LoginResponse {
 }
 
 export interface CurrentUser {
-  id: number;
+  id: number | string;
   username: string;
   full_name: string;
   role: UserRole;

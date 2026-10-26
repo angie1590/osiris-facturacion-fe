@@ -48,6 +48,7 @@ export interface DataTableRowActions<T> {
   isActive?: (row: T) => boolean;
   onView?: (row: T) => void;
   onEdit?: (row: T) => void;
+  canToggleActive?: (row: T) => boolean;
   onToggleActive?: (row: T) => void;
 }
 
@@ -382,24 +383,25 @@ export function DataTable<T>({
                               <Pencil className="h-4 w-4 text-primary" />
                             </Button>
                           )}
-                          {rowActions.onToggleActive && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                "h-8 w-8",
-                                (rowActions.isActive?.(row) ?? true)
-                                  ? "text-destructive hover:text-destructive"
-                                  : "text-success hover:text-success",
-                              )}
-                              onClick={() => rowActions.onToggleActive?.(row)}
-                              title={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
-                              aria-label={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
-                            >
-                              <Power className="h-4 w-4" />
-                            </Button>
-                          )}
+                          {rowActions.onToggleActive &&
+                            (rowActions.canToggleActive?.(row) ?? true) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className={cn(
+                                  "h-8 w-8",
+                                  (rowActions.isActive?.(row) ?? true)
+                                    ? "text-destructive hover:text-destructive"
+                                    : "text-success hover:text-success",
+                                )}
+                                onClick={() => rowActions.onToggleActive?.(row)}
+                                title={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
+                                aria-label={`${(rowActions.isActive?.(row) ?? true) ? "Desactivar" : "Activar"} ${rowActions.getLabel(row)}`}
+                              >
+                                <Power className="h-4 w-4" />
+                              </Button>
+                            )}
                         </div>
                       </TableCell>
                     )}

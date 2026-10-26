@@ -1,5 +1,11 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
 import { RoleGuard } from "@/components/shared/RoleGuard";
@@ -24,10 +30,6 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
 const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
 const CategoriasPage = lazy(() => import("@/pages/CategoriasPage"));
-const AtributosPage = lazy(() => import("@/pages/AtributosPage"));
-const CategoriasAtributosPage = lazy(
-  () => import("@/pages/CategoriasAtributosPage"),
-);
 const BodegasPage = lazy(() => import("@/pages/BodegasPage"));
 const ConfiguracionOperativaPage = lazy(
   () => import("@/pages/ConfiguracionOperativaPage"),
@@ -35,9 +37,7 @@ const ConfiguracionOperativaPage = lazy(
 const ImpuestosPage = lazy(() => import("@/pages/ImpuestosPage"));
 const EmpresaCanonicaPage = lazy(() => import("@/pages/EmpresaCanonicaPage"));
 const VentasPage = lazy(() => import("@/pages/VentasPage"));
-const CuentasPorCobrarPage = lazy(
-  () => import("@/pages/CuentasPorCobrarPage"),
-);
+const CuentasPorCobrarPage = lazy(() => import("@/pages/CuentasPorCobrarPage"));
 const CuentasPorPagarPage = lazy(() => import("@/pages/CuentasPorPagarPage"));
 const ComprasPage = lazy(() => import("@/pages/ComprasPage"));
 const RetencionesPage = lazy(() => import("@/pages/RetencionesPage"));
@@ -104,6 +104,7 @@ const KardexPage = lazy(() => import("@/pages/KardexPage"));
 const ReportsPage = lazy(() => import("@/pages/reports/ReportsPage"));
 const AuditPage = lazy(() => import("@/pages/AuditPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
+const EmpleadosPage = lazy(() => import("@/pages/admin/EmpleadosPage"));
 const AdminParamsPage = lazy(() => import("@/pages/admin/AdminParamsPage"));
 const TemporaryTaxMeasuresPage = lazy(
   () => import("@/pages/admin/TemporaryTaxMeasuresPage"),
@@ -139,9 +140,18 @@ export default function App() {
             {/* Auth routes */}
             <Route element={<AuthLayout />}>
               <Route path="/iniciar-sesion" element={<LoginPage />} />
-              <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
-              <Route path="/login" element={<Navigate to="/iniciar-sesion" replace />} />
-              <Route path="/change-password" element={<Navigate to="/cambiar-contrasena" replace />} />
+              <Route
+                path="/cambiar-contrasena"
+                element={<ChangePasswordPage />}
+              />
+              <Route
+                path="/login"
+                element={<Navigate to="/iniciar-sesion" replace />}
+              />
+              <Route
+                path="/change-password"
+                element={<Navigate to="/cambiar-contrasena" replace />}
+              />
             </Route>
 
             {/* Protected app routes */}
@@ -157,12 +167,12 @@ export default function App() {
                 />
               </Route>
               <Route element={<AppLayout />}>
-                  <Route element={<RoleGuard roles={["admin"]} />}>
-                    <Route
-                      path="/admin/medidas-tributarias"
-                      element={<TemporaryTaxMeasuresPage />}
-                    />
-                  </Route>
+                <Route element={<RoleGuard roles={["admin"]} />}>
+                  <Route
+                    path="/admin/medidas-tributarias"
+                    element={<TemporaryTaxMeasuresPage />}
+                  />
+                </Route>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
@@ -176,17 +186,17 @@ export default function App() {
                 />
 
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
-                  <Route
-                    path="/categorias"
-                    element={<CategoriasPage />}
-                  />
+                  <Route path="/categorias" element={<CategoriasPage />} />
                   <Route path="/catalogos" element={<CatalogsPage />} />
                   <Route path="/recategorizar" element={<RecategorizePage />} />
                   <Route path="/remapeos" element={<RemapPage />} />
-                  <Route path="/atributos" element={<AtributosPage />} />
+                  <Route
+                    path="/atributos"
+                    element={<Navigate to="/categorias" replace />}
+                  />
                   <Route
                     path="/categorias-atributos"
-                    element={<CategoriasAtributosPage />}
+                    element={<Navigate to="/categorias" replace />}
                   />
                   <Route path="/bodegas" element={<BodegasPage />} />
                   <Route
@@ -199,6 +209,10 @@ export default function App() {
                   <Route
                     path="/retenciones/historial"
                     element={<RetencionesHistorialPage />}
+                  />
+                  <Route
+                    path="/atributos"
+                    element={<Navigate to="/categorias" replace />}
                   />
                   <Route
                     path="/cuentas-por-pagar"
@@ -261,9 +275,7 @@ export default function App() {
                 </Route>
 
                 {/* Movimientos de ingreso no comerciales: admin + supervisor */}
-                <Route
-                  element={<RoleGuard roles={["admin", "supervisor"]} />}
-                >
+                <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
                   <Route
                     path="/inventario/ingresos"
                     element={<IngresosPage />}
@@ -328,10 +340,14 @@ export default function App() {
                       element={<Navigate to={to} replace />}
                     />
                   ))}
-                  <Route path="/admin/usuarios" element={<AdminUsersPage />} />
                 </Route>
+                <Route path="/admin/usuarios" element={<AdminUsersPage />} />
+                <Route path="/admin/empleados" element={<EmpleadosPage />} />
                 <Route element={<RoleGuard roles={["admin"]} />}>
-                  <Route path="/admin/parametros" element={<AdminParamsPage />} />
+                  <Route
+                    path="/admin/parametros"
+                    element={<AdminParamsPage />}
+                  />
                 </Route>
                 <Route path="*" element={<LegacyRouteRedirect />} />
               </Route>

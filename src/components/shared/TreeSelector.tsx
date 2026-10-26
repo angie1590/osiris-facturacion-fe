@@ -10,12 +10,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { Category } from "@/types/api";
 
-interface TreeSelectorProps {
-  categories: Category[];
-  value: number | null;
-  onChange: (id: number | null) => void;
+interface TreeCategory<Id extends string | number> {
+  id: Id;
+  name: string;
+  parent_id: Id | null;
+  is_active: boolean;
+  description?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface TreeSelectorProps<Id extends string | number> {
+  categories: TreeCategory<Id>[];
+  value: Id | null;
+  onChange: (id: Id | null) => void;
   placeholder?: string;
   allowRootOption?: boolean;
   rootLabel?: string;
@@ -30,9 +39,14 @@ interface TreeSelectorProps {
   "aria-describedby"?: string;
 }
 
-function buildPath(categories: Category[], id: number): string {
+function buildPath<Id extends string | number>(
+  categories: TreeCategory<Id>[],
+  id: Id,
+): string {
   const parts: string[] = [];
-  let current: Category | undefined = categories.find((c) => c.id === id);
+  let current: TreeCategory<Id> | undefined = categories.find(
+    (c) => c.id === id,
+  );
   while (current) {
     parts.unshift(current.name);
     current = current.parent_id
@@ -42,9 +56,9 @@ function buildPath(categories: Category[], id: number): string {
   return parts.join(" › ");
 }
 
-function matchesSearch(
-  cat: Category,
-  categories: Category[],
+function matchesSearch<Id extends string | number>(
+  cat: TreeCategory<Id>,
+  categories: TreeCategory<Id>[],
   query: string,
 ): boolean {
   if (!query) return true;
@@ -62,9 +76,9 @@ function matchesSearch(
   return false;
 }
 
-function hasVisibleDescendant(
-  cat: Category,
-  categories: Category[],
+function hasVisibleDescendant<Id extends string | number>(
+  cat: TreeCategory<Id>,
+  categories: TreeCategory<Id>[],
   query: string,
 ): boolean {
   const children = categories.filter(
@@ -77,21 +91,21 @@ function hasVisibleDescendant(
   );
 }
 
-interface NodeProps {
-  cat: Category;
-  categories: Category[];
+interface NodeProps<Id extends string | number> {
+  cat: TreeCategory<Id>;
+  categories: TreeCategory<Id>[];
   depth: number;
   query: string;
-  selected: number | null;
-  onSelect: (id: number) => void;
-  focusedId: number | null;
-  setFocusedId: (id: number | null) => void;
-  flatVisible: React.MutableRefObject<number[]>;
+  selected: Id | null;
+  onSelect: (id: Id) => void;
+  focusedId: Id | null;
+  setFocusedId: (id: Id | null) => void;
+  flatVisible: React.MutableRefObject<Id[]>;
   leafOnly: boolean;
   defaultExpanded: boolean;
 }
 
-function TreeNode({
+function TreeNode<Id extends string | number>({
   cat,
   categories,
   depth,
@@ -103,7 +117,7 @@ function TreeNode({
   flatVisible,
   leafOnly,
   defaultExpanded,
-}: NodeProps) {
+}: NodeProps<Id>) {
   const children = categories.filter(
     (c) => c.parent_id === cat.id && c.is_active,
   );
@@ -194,7 +208,7 @@ function TreeNode({
   );
 }
 
-export function TreeSelector({
+export function TreeSelector<Id extends string | number = number>({
   categories,
   value,
   onChange,
@@ -207,12 +221,12 @@ export function TreeSelector({
   id,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedby,
-}: TreeSelectorProps) {
+}: TreeSelectorProps<Id>) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
-  const [focusedId, setFocusedId] = React.useState<number | null>(null);
+  const [focusedId, setFocusedId] = React.useState<Id | null>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
-  const flatVisible = React.useRef<number[]>([]);
+  const flatVisible = React.useRef<Id[]>([]);
 
   const activeCategories = categories.filter((c) => c.is_active);
   const roots = activeCategories.filter((c) => !c.parent_id);
@@ -228,7 +242,7 @@ export function TreeSelector({
     }
   }, [open]);
 
-  const handleSelect = (id: number) => {
+  const handleSelect = (id: Id) => {
     if (id === -1) {
       onChange(null);
       setOpen(false);
@@ -258,7 +272,7 @@ export function TreeSelector({
   };
 
   flatVisible.current = [];
-  if (allowRootOption) flatVisible.current.push(-1);
+  if (allowRootOption) flatVisible.current.push(-1 as Id);
 
   return (
     <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -334,8 +348,8 @@ export function TreeSelector({
                   value === null && "bg-primary/10 font-medium",
                   focusedId === -1 && "ring-2 ring-ring ring-inset",
                 )}
-                onClick={() => handleSelect(-1)}
-                onMouseEnter={() => setFocusedId(-1)}
+                onClick={() => handleSelect(-1 as Id)}
+                onMouseEnter={() => setFocusedId(-1 as Id)}
               >
                 <span className="flex-1 truncate">{rootLabel}</span>
                 {value === null && (
