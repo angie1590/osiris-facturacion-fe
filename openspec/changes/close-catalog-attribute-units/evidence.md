@@ -19,4 +19,11 @@ Fecha: 2026-10-27. Recorrido de navegador autenticado como Administrador en `htt
 
 La prueba encontró 19 productos, todos inactivos, y 0 productos activos por categoría. No se creó ni reactivó producto, no se escribieron valores EAV y no se alteraron stock, impuestos, cartera, SRI ni documentos. Se limpiaron por UUID los dos atributos, cuatro mappings, dos snapshots, 15 auditorías y una unidad de prueba. Los conteos de nueve tablas volvieron a la línea base registrada por BE.
 
-Durante la sesión también respondió 409 `GET /categorias/sin-clasificar/conteo` porque no había una empresa seleccionada; es una consulta de fondo ajena al CRUD de categorías/unidades y no bloqueó los recorridos ni se modificó su comportamiento.
+En el primer recorrido de prueba la base contenía 19 productos, todos inactivos. El seguimiento H-03 agregó un fixture temporal aislado por UUID con dos productos activos y luego lo limpió; el detalle está en el `evidence.md` BE coordinado.
+
+## Seguimiento de auditoría H-01/H-02/H-03 (2026-10-27)
+
+- H-01: la pantalla `CategoriasAtributosPage` sin consumidores fue retirada; `/categorias-atributos` redirige sin guard de rol a `/categorias`. Producto mantiene solo GET transitorio, mientras las escrituras legacy reciben 410.
+- H-02: `/categorias`, `/remapeos` y `/recategorizar` se muestran por permisos efectivos. Con `ATRIBUTOS.leer` sin `ATRIBUTOS.actualizar`, RemapPage muestra datos y oculta entradas/Guardar; con `CATEGORIAS.leer` sin `CATEGORIAS.actualizar`, RecategorizePage muestra pendientes en solo lectura.
+- H-03: navegador autenticado y PostgreSQL real cubrieron faltantes/backfill, conversión obligatoria incompatible, primera anotación/undo, bloqueo A-B, retiro local conservado por herencia y preview stale con productos activos. Los datos se borraron por UUID y los conteos volvieron a línea base.
+- Verificación final: suite FE, 321 tests en 30 archivos, lint y build limpios; suite BE completa, 1282 passed y 77 skipped; Ruff y mypy limpios; Docusaurus build y `openspec validate --strict --no-interactive` en ambos repos pasaron. El live smoke del backend actualizado pasó 2/2.

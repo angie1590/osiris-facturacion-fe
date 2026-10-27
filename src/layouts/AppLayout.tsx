@@ -12,6 +12,8 @@ import {
 } from "@/features/empresa/hooks";
 import { getConteoSinRecategorizar } from "@/features/categorias/api";
 import { usePendingRemap } from "@/features/catalog/remapHooks";
+import { catalogAccess } from "@/features/categorias/catalog-access";
+import { useCatalogPermissions } from "@/features/categorias/useCatalogPermissions";
 import { useSessionTimer } from "@/hooks/use-session-timer";
 import { getSessionTimeoutMinutes } from "@/lib/api";
 
@@ -23,18 +25,28 @@ export default function AppLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { user, logout, reloadUser } = useAuth();
   const navigate = useNavigate();
+  const { context: catalogPermissions } = useCatalogPermissions();
   const { data: empresa } = useEmpresaPrincipal();
   const empresaStatus = buildEmpresaConfigurationStatus(empresa);
   const showBanner = !empresaStatus.fiscalComplete;
-  const canRecategorize = user?.role === "admin" || user?.role === "supervisor";
+  const canReadCategories =
+    catalogAccess(catalogPermissions, "read_categories") === "permitido";
+  const canRecategorize =
+    canReadCategories &&
+    catalogAccess(catalogPermissions, "update_category") === "permitido";
+  const canReadRemaps =
+    catalogAccess(catalogPermissions, "read_attributes") === "permitido";
+  const canResolveRemaps =
+    canReadRemaps &&
+    catalogAccess(catalogPermissions, "update_attribute") === "permitido";
   const { data: pendingRecategorization = 0 } = useQuery({
     queryKey: ["recategorizacion-pendientes"],
     queryFn: getConteoSinRecategorizar,
-    enabled: canRecategorize,
+    enabled: canReadCategories,
     refetchInterval: 30_000,
   });
-  const { data: pendingRemap } = usePendingRemap();
-  const remapCount = canRecategorize ? (pendingRemap?.total ?? 0) : 0;
+  const { data: pendingRemap } = usePendingRemap(canReadRemaps);
+  const remapCount = canReadRemaps ? (pendingRemap?.total ?? 0) : 0;
   const timeoutMinutes = getSessionTimeoutMinutes();
   const pinRequired =
     (user?.role === "admin" || user?.role === "supervisor") &&
@@ -133,34 +145,38 @@ export default function AppLayout() {
           </div>
         )}
 
-        {pendingRecategorization > 0 && canRecategorize && (
+        {pendingRecategorization > 0 && canReadCategories && (
           <div className="mx-5 mt-4 flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-amber-400/80 bg-amber-100/95 px-4 py-2.5 text-sm text-amber-900 shadow-token-sm">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
               Hay {pendingRecategorization} producto{pendingRecategorization === 1 ? "" : "s"} sin recategorizar en categorías "Sin clasificar".
             </span>
-            <Link
-              to="/recategorizar"
-              className="font-semibold underline underline-offset-2 hover:no-underline"
-            >
-              Recategorizar ahora
-            </Link>
+            {canRecategorize && (
+              <Link
+                to="/recategorizar"
+                className="font-semibold underline underline-offset-2 hover:no-underline"
+              >
+                Recategorizar ahora
+              </Link>
+            )}
           </div>
         )}
 
-        {remapCount > 0 && canRecategorize && (
+        {remapCount > 0 && canReadRemaps && (
           <div className="mx-5 mt-4 flex shrink-0 items-center gap-2 rounded-lg border border-amber-400/80 bg-amber-100/95 px-4 py-2.5 text-sm text-amber-900 shadow-token-sm">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>
               Hay {remapCount} valor(es) de atributos por remapear tras un
               cambio de tipo.
             </span>
-            <Link
-              to="/remapeos"
-              className="font-semibold underline underline-offset-2 hover:no-underline"
-            >
-              Remapear ahora
-            </Link>
+            {canResolveRemaps && (
+              <Link
+                to="/remapeos"
+                className="font-semibold underline underline-offset-2 hover:no-underline"
+              >
+                Remapear ahora
+              </Link>
+            )}
           </div>
         )}
 

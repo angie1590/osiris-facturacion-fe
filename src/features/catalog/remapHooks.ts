@@ -24,11 +24,12 @@ export interface RemapPending {
   groups: RemapGroup[]
 }
 
-export function usePendingRemap() {
+export function usePendingRemap(enabled = true) {
   return useQuery<RemapPending>({
     queryKey: ["attribute-remap", "pending"],
     queryFn: () => api.get<RemapPending>("/atributos/remapeos/pendientes").then((r) => r.data),
     staleTime: 60 * 1000,
+    enabled,
   })
 }
 

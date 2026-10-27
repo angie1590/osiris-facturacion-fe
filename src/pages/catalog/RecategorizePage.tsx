@@ -14,6 +14,8 @@ import {
 } from "@/features/categorias/api";
 import { useToast } from "@/hooks/use-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
+import { catalogAccess } from "@/features/categorias/catalog-access";
+import { useCatalogPermissions } from "@/features/categorias/useCatalogPermissions";
 
 function categoryPath(categoryId: string, categories: Categoria[]) {
   const path: string[] = [];
@@ -44,6 +46,8 @@ export default function RecategorizePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { context: catalogPermissions } = useCatalogPermissions();
+  const canUpdate = catalogAccess(catalogPermissions, "update_category") === "permitido";
   const { data: pending = [], isLoading, isError } = useQuery({
     queryKey: ["productos-sin-recategorizar"],
     queryFn: getProductosSinRecategorizar,
@@ -100,6 +104,7 @@ export default function RecategorizePage() {
   const selectedCount = Object.keys(assignments).length;
 
   const handleSubmit = async () => {
+    if (!canUpdate) return;
     const payload = Object.entries(assignments).map(([producto_id, categoria_id]) => ({
       producto_id,
       categoria_id,
@@ -132,7 +137,7 @@ export default function RecategorizePage() {
     <div className="space-y-4">
       <PageHeader
         title="Recategorizar productos"
-        actions={pending.length > 0 && (
+        actions={canUpdate && pending.length > 0 && (
           <Button
             onClick={handleSubmit}
             isLoading={recategorize.isPending}
@@ -175,23 +180,29 @@ export default function RecategorizePage() {
                         Código de barras {product.codigo_barras || "—"}
                       </p>
                     </div>
-                    <select
-                      className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm sm:w-80"
-                      value={assignments[product.producto_id] ?? ""}
-                      onChange={(event) => setAssignments((previous) => {
-                        const next = { ...previous };
-                        if (event.target.value) next[product.producto_id] = event.target.value;
-                        else delete next[product.producto_id];
-                        return next;
-                      })}
-                    >
-                      <option value="">Elegir subcategoría</option>
-                      {group.targets.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {categoryPath(category.id, categories)}
-                        </option>
-                      ))}
-                    </select>
+                    {canUpdate ? (
+                      <select
+                        className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm sm:w-80"
+                        value={assignments[product.producto_id] ?? ""}
+                        onChange={(event) => setAssignments((previous) => {
+                          const next = { ...previous };
+                          if (event.target.value) next[product.producto_id] = event.target.value;
+                          else delete next[product.producto_id];
+                          return next;
+                        })}
+                      >
+                        <option value="">Elegir subcategoría</option>
+                        {group.targets.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {categoryPath(category.id, categories)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        Solo lectura
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

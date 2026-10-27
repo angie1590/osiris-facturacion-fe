@@ -28,11 +28,14 @@ import {
   CreditCard,
   FileCheck,
   Ruler,
+  RotateCcw,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import type { UserRole } from "@/types/api";
+import { catalogAccess, type CatalogOperation } from "@/features/categorias/catalog-access";
+import { useCatalogPermissions } from "@/features/categorias/useCatalogPermissions";
 
 type Section = "principal" | "catalogo" | "movimientos" | "analisis" | "admin";
 type SidebarGroupId =
@@ -50,6 +53,7 @@ interface NavItem {
   sidebarGroup?: SidebarGroupId;
   analysisGroup?: AnalysisGroupId;
   hideInSidebar?: boolean;
+  catalogOperations?: readonly CatalogOperation[];
 }
 
 type AnalysisGroupId =
@@ -107,6 +111,8 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   catalogo: [
     { type: "item", to: "/productos" },
     { type: "item", to: "/categorias" },
+    { type: "item", to: "/recategorizar" },
+    { type: "item", to: "/remapeos" },
     { type: "item", to: "/unidades" },
     { type: "item", to: "/catalogos" },
     { type: "item", to: "/bodegas" },
@@ -158,8 +164,25 @@ export const NAV_ITEMS: NavItem[] = [
     to: "/categorias",
     label: "Categorías",
     icon: Tags,
-    roles: ["admin", "supervisor"],
+    roles: ["admin", "operator", "supervisor"],
     section: "catalogo",
+    catalogOperations: ["read_categories"],
+  },
+  {
+    to: "/recategorizar",
+    label: "Recategorizar",
+    icon: Tags,
+    roles: ["admin", "operator", "supervisor"],
+    section: "catalogo",
+    catalogOperations: ["read_categories"],
+  },
+  {
+    to: "/remapeos",
+    label: "Remapeos de atributos",
+    icon: RotateCcw,
+    roles: ["admin", "operator", "supervisor"],
+    section: "catalogo",
+    catalogOperations: ["read_attributes"],
   },
   {
     to: "/unidades",
@@ -530,11 +553,16 @@ export function Sidebar({
   style,
 }: SidebarProps) {
   const { user } = useAuth();
+  const { context: catalogPermissions } = useCatalogPermissions();
   const location = useLocation();
   const role = user?.role;
 
   const visibleItems = NAV_ITEMS.filter(
-    (item) => role && item.roles.includes(role),
+    (item) => role
+      && item.roles.includes(role)
+      && (!item.catalogOperations || item.catalogOperations.every(
+        (operation) => catalogAccess(catalogPermissions, operation) === "permitido",
+      )),
   );
   const visibleMenuItems = visibleItems.filter((item) => !item.hideInSidebar);
   const sections: Section[] = [

@@ -9,7 +9,7 @@ Fecha: 2026-10-25. No se modifica runtime, rutas, payloads ni formulario Product
 | src/features/categorias/atributos-herencia.ts | Recorre ancestros localmente y resuelve precedencia visual | Deja de ser autoridad funcional solo cuando endpoint efectivo y conteos canonicos esten disponibles |
 | src/components/shared/TreeSelector.tsx | Dibuja jerarquia y seleccion con IDs genericos | Reutilizar como presentacion, no resolver reglas ni habilitar padres invalidos por inferencia |
 | src/pages/catalog/RecategorizePage.tsx | Selecciona destinos con !es_padre | Adaptar con contrato backend de hojas seleccionables antes de retirar compatibilidad |
-| src/pages/CategoriasAtributosPage.tsx | Pagina legacy de asignaciones; no es la ruta canonica actual | Verificar todos sus consumidores antes de retirarla |
+| src/pages/CategoriasAtributosPage.tsx | Retirada; no tenía ruta/imports activos | Las escrituras contextuales viven en CategoriasPage |
 | src/App.tsx | /atributos y /categorias-atributos redirigen a /categorias | Conservar redirects unicos; no agregar segunda administracion de atributos |
 | src/pages/ProductosPage.tsx | Usa categoria_ids, consulta relaciones directas, alta y EAV en solicitudes separadas | Fuera de alcance actual; entrega 7 posterior debe cerrar atomicidad y categoria_principal_id |
 | src/features/productos/api.ts | getAtributosDeCategoria usa /categorias-atributos; saveValoresProducto es otra request | No cambiar payload/contrato ni fingir alta atomica hasta entrega 7 |
@@ -39,3 +39,12 @@ El cambio coordinado backend incorpora preflight SQL Core/CLI con tests aislados
 ## Conciliacion local autorizada
 
 El backend concilio los datos de prueba tras aprobacion del mantenedor: renombres de historicos inactivos y correccion de flags padre, preservando IDs/productos/relaciones/valores. Preflight posterior sin conflictos e idempotencia comprobada; evidencia en data-reconciliation.md del cambio backend. No hubo cambios de codigo frontend ni de Producto, y no se ha desplegado la entrega 2.
+
+## Seguimiento de auditoría - 2026-10-27
+
+- El redirect `/categorias-atributos` ya no exige nombre de rol; Categorías valida `CATEGORIAS.leer`.
+- Remapeos separa lectura (`ATRIBUTOS.leer`) y resolución (`ATRIBUTOS.actualizar`). B3 separa lectura y recategorización con los permisos equivalentes de CATEGORIAS.
+- Se retiró `src/pages/CategoriasAtributosPage.tsx`; el GET legacy queda solo por el formulario actual de Producto hasta la entrega 7.
+- La evidencia H-03 con productos activos y su limpieza completa está registrada en `evidence.md` de ambos repositorios.
+- La migración del lector de Producto al resolver efectivo y el alta/edición atómica permanecen en la entrega 7.
+- Las escrituras administrativas usan exclusivamente `/categorias/{id}/atributos` con preview/precondición y permiso efectivo.

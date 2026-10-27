@@ -7,8 +7,13 @@ import {
   useLocation,
 } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+                <Route
+                  path="/categorias-atributos"
+                  element={<Navigate to="/categorias" replace />}
+                />
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute";
 import { RoleGuard } from "@/components/shared/RoleGuard";
+import { CatalogPermissionRoute } from "@/components/shared/CatalogPermissionRoute";
 import AppLayout from "@/layouts/AppLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import Forbidden from "@/pages/Forbidden";
@@ -188,16 +193,9 @@ export default function App() {
                 />
 
                 <Route element={<RoleGuard roles={["admin", "supervisor"]} />}>
-                  <Route path="/categorias" element={<CategoriasPage />} />
                   <Route path="/catalogos" element={<CatalogsPage />} />
-                  <Route path="/recategorizar" element={<RecategorizePage />} />
-                  <Route path="/remapeos" element={<RemapPage />} />
                   <Route
                     path="/atributos"
-                    element={<Navigate to="/categorias" replace />}
-                  />
-                  <Route
-                    path="/categorias-atributos"
                     element={<Navigate to="/categorias" replace />}
                   />
                   <Route path="/bodegas" element={<BodegasPage />} />
@@ -274,6 +272,25 @@ export default function App() {
                     path="/documentos-sri"
                     element={<DocumentosSRIPage />}
                   />
+                </Route>
+
+                <Route
+                  element={<CatalogPermissionRoute operations={["read_categories"]} />}
+                >
+                  <Route path="/categorias" element={<CategoriasPage />} />
+                </Route>
+
+                <Route
+                  element={
+                    <CatalogPermissionRoute operations={["read_categories"]} />
+                  }
+                >
+                  <Route path="/recategorizar" element={<RecategorizePage />} />
+                </Route>
+                <Route
+                  element={<CatalogPermissionRoute operations={["read_attributes"]} />}
+                >
+                  <Route path="/remapeos" element={<RemapPage />} />
                 </Route>
 
                 {/* Movimientos de ingreso no comerciales: admin + supervisor */}

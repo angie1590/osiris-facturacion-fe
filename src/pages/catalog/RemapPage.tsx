@@ -14,6 +14,8 @@ import { useCatalogValues } from '@/features/catalog/catalogHooks'
 import { DATA_TYPE_LABELS } from '@/features/catalog/AttributeFormModal'
 import { useToast } from '@/hooks/use-toast'
 import { getApiErrorMessage } from '@/lib/api-error'
+import { catalogAccess } from '@/features/categorias/catalog-access'
+import { useCatalogPermissions } from '@/features/categorias/useCatalogPermissions'
 
 function RemapInput({ group, value, onChange }: { group: RemapGroup; value: string | undefined; onChange: (v: string) => void }) {
   const { target_type, allowed_values } = group
@@ -55,6 +57,8 @@ function RemapInput({ group, value, onChange }: { group: RemapGroup; value: stri
 export default function RemapPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { context: catalogPermissions } = useCatalogPermissions()
+  const canResolve = catalogAccess(catalogPermissions, 'update_attribute') === 'permitido'
   const { data, isLoading } = usePendingRemap()
   const resolve = useResolveRemap()
   // itemId -> string value (undefined = untouched)
@@ -63,6 +67,7 @@ export default function RemapPage() {
   const touched = Object.keys(values).length
 
   const handleSubmit = async () => {
+    if (!canResolve) return
     const assignments = Object.entries(values).map(([id, raw]) => {
       const valor = raw === '' ? null : raw === 'true' ? true : raw === 'false' ? false : raw
       return { id, valor }
@@ -87,7 +92,7 @@ export default function RemapPage() {
     <div className="space-y-4">
       <PageHeader
         title="Remapear valores de atributos"
-        actions={groups.length > 0 && (
+        actions={canResolve && groups.length > 0 && (
           <Button onClick={handleSubmit} isLoading={resolve.isPending} disabled={touched === 0}>
             Guardar ({touched})
           </Button>
@@ -127,7 +132,11 @@ export default function RemapPage() {
                       <p className="text-xs text-muted-foreground">Valor anterior: {it.old_value || '—'}</p>
                     </div>
                     <div className="w-64">
-                      <RemapInput group={g} value={values[it.id]} onChange={(v) => setValues((prev) => ({ ...prev, [it.id]: v }))} />
+                      {canResolve ? (
+                        <RemapInput group={g} value={values[it.id]} onChange={(v) => setValues((prev) => ({ ...prev, [it.id]: v }))} />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Solo lectura</span>
+                      )}
                     </div>
                   </div>
                 ))}
