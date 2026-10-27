@@ -15,6 +15,7 @@ interface ConfirmDialogProps {
   onClose: () => void;
   title: string;
   description?: React.ReactNode;
+  details?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "default" | "danger";
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   onClose,
   title,
   description,
+  details,
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   variant = "default",
@@ -64,6 +66,11 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {details && (
+          <div className="space-y-3 px-6 text-sm text-muted-foreground">
+            {details}
+          </div>
+        )}
         {error && (
           <p role="alert" className="px-6 text-sm text-destructive">
             {error}

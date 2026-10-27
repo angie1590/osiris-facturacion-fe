@@ -2,9 +2,11 @@ import { useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  History,
   ListChecks,
   Pencil,
   Plus,
+  RefreshCw,
   Tags,
   Trash2,
 } from "lucide-react";
@@ -18,26 +20,56 @@ import { FormField } from "@/components/shared/FormField";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { TreeSelector } from "@/components/shared/TreeSelector";
 import { useCatalogs } from "@/features/catalog/catalogHooks";
+import { useAuth } from "@/contexts/AuthContext";
+import { getEffectivePermissions } from "@/features/personas/directory";
+import {
+  catalogAccess,
+  type CatalogAccessContext,
+} from "@/features/categorias/catalog-access";
 import { useToast } from "@/hooks/use-toast";
 import { parseApiError } from "@/lib/api-error";
 import {
+  confirmCategoryCreate,
+  confirmCategoryMove,
   createCategoria,
   deleteCategoria,
-  getCategoriasCanonicas,
+  assignExistingAttribute,
+  getCategoriaAtributosEfectivos,
+  getCategoriaAtributosPropios,
+  getCategoriasArbol,
+  previewRemoveCategoriaAtributo,
+  removeCategoriaAtributo,
+  previewCreateCategoryAttribute,
+  previewCategoriaAtributo,
+  previewCategoryCreate,
+  previewCategoryMove,
   updateCategoria,
+  type B3Preview,
+  type CategoriaAtributoPreview,
+  type CategoryAttributeCreatePayload,
+  type CategoriaAtributoEfectivo,
   type Categoria,
+  type CategoriaArbol,
+  type CategoriaWrite,
 } from "@/features/categorias/api";
-import {
-  getAtributosAplicables,
-  type AtributoAplicable,
-  type CategoriaAtributo,
-} from "@/features/categorias/atributos-herencia";
+import type { AtributoAplicable } from "@/features/categorias/atributos-herencia";
 import api from "@/lib/api";
 
 interface AtributoOption {
   id: string;
   nombre: string;
+  codigo?: string;
   tipo_dato: string;
+  activo?: boolean;
+  actualizado_en?: string;
+  unidad_id?: string | null;
+  unidad?: {
+    id: string;
+    codigo: string;
+    nombre: string;
+    simbolo: string;
+    magnitud_codigo: string;
+  } | null;
   allow_negative?: boolean;
   min_value?: string | null;
   max_value?: string | null;
@@ -62,19 +94,29 @@ interface AtributoDefinition {
   allow_negative?: boolean;
   min_value?: number;
   max_value?: number;
-  usuario_auditoria: string;
 }
 
 interface AssignmentUpdate {
   id: string;
+  categoria_id: string;
+  atributo_id: string;
+  override: boolean;
+  orden: number | null;
   obligatorio: boolean;
-  valor_default?: string;
+  valor_default: string | null;
   aplicar_default_a_existentes: boolean;
+  precondicion_preview?: string;
+}
+
+interface B3ConfirmationDraft {
+  operation: "create" | "move";
+  payload: CategoriaWrite;
+  categoryId?: string;
+  preview: B3Preview;
 }
 
 function CategoryNode({
   category,
-  categories,
   assignmentCounts,
   assignmentCount,
   selectedCategoryId,
@@ -83,9 +125,10 @@ function CategoryNode({
   onEdit,
   onCreateChild,
   onDelete,
+  canUpdate,
+  canDeactivate,
 }: {
-  category: Categoria;
-  categories: Categoria[];
+  category: CategoriaArbol;
   assignmentCounts: Map<string, number>;
   assignmentCount: number;
   selectedCategoryId: string | null;
@@ -94,16 +137,18 @@ function CategoryNode({
   onEdit: (category: Categoria) => void;
   onCreateChild: (category: Categoria) => void;
   onDelete: (category: Categoria) => void;
+  canUpdate: boolean;
+  canDeactivate: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const children = searching
     ? []
-    : categories.filter((item) => item.parent_id === category.id);
+    : category.hijos;
 
   return (
     <div>
       <div
-        className={`group flex min-h-11 items-center gap-2 px-3 py-2 hover:bg-muted ${selectedCategoryId === category.id ? "bg-muted" : ""}`}
+        className={`group flex min-h-11 flex-wrap items-center gap-2 px-3 py-2 hover:bg-muted sm:flex-nowrap ${selectedCategoryId === category.id ? "bg-muted" : ""}`}
       >
         <button
           type="button"
@@ -127,61 +172,67 @@ function CategoryNode({
         <Tags className="h-4 w-4 shrink-0 text-muted-foreground" />
         <button
           type="button"
-          className="min-w-0 flex-1 truncate text-left text-sm"
+          className="min-w-0 flex-1 break-words text-left text-sm sm:truncate"
+          disabled={category.is_default}
           onClick={() => onSelect(category)}
         >
           {category.nombre}
         </button>
+        {category.is_default && <Badge variant="outline">Temporal</Badge>}
         <Badge variant="secondary" title="Atributos propios y heredados">
           {assignmentCount}
         </Badge>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
-          onClick={() => onSelect(category)}
-          title="Atributos"
-        >
-          <Tags className="h-3.5 w-3.5" />
-        </Button>
-        {!category.is_default && (
+        <div className="ml-auto flex basis-full items-center justify-end gap-1 sm:ml-0 sm:basis-auto">
           <Button
             size="icon"
             variant="ghost"
             className="h-7 w-7"
-            onClick={() => onEdit(category)}
-            title="Editar categoría"
+            disabled={category.is_default}
+            onClick={() => onSelect(category)}
+            title="Atributos"
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Tags className="h-3.5 w-3.5" />
           </Button>
-        )}
-        {!category.is_default && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={() => onCreateChild(category)}
-            title={`Crear subcategoría en ${category.nombre}`}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7 text-destructive"
-          onClick={() => onDelete(category)}
-          title="Dar de baja categoría"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+          {!category.is_default && canUpdate && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onEdit(category)}
+              title="Editar categoría"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {!category.is_default && canUpdate && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onCreateChild(category)}
+              title={`Crear subcategoría en ${category.nombre}`}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {!category.is_default && canDeactivate && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-destructive"
+              onClick={() => onDelete(category)}
+              title="Dar de baja categoría"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
       {expanded &&
         children.map((child) => (
           <div key={child.id} className="pl-5">
             <CategoryNode
               category={child}
-              categories={categories}
               assignmentCounts={assignmentCounts}
               assignmentCount={assignmentCounts.get(child.id) ?? 0}
               selectedCategoryId={selectedCategoryId}
@@ -190,6 +241,8 @@ function CategoryNode({
               onEdit={onEdit}
               onCreateChild={onCreateChild}
               onDelete={onDelete}
+              canUpdate={canUpdate}
+              canDeactivate={canDeactivate}
             />
           </div>
         ))}
@@ -200,20 +253,59 @@ function CategoryNode({
 export default function CategoriasPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const actor = user?.id == null ? null : String(user.id);
+  const permissions = useQuery({
+    queryKey: ["effective-permissions", actor],
+    queryFn: () => getEffectivePermissions(actor!),
+    enabled: actor !== null,
+  });
+  const accessContext: CatalogAccessContext = actor === null
+    ? { actor: null, status: "pendiente" }
+    : permissions.isPending
+      ? { actor, status: "pendiente" }
+      : permissions.isError
+        ? { actor, status: "error" }
+        : {
+            actor,
+            permissionsActor: actor,
+            status: "listo",
+            permissions: permissions.data ?? [],
+          };
+  const canReadCategories = catalogAccess(accessContext, "read_categories") === "permitido";
+  const canReadCategoryAttributes = catalogAccess(accessContext, "read_category_attributes") === "permitido";
+  const canAssignAttribute = catalogAccess(accessContext, "assign_attribute") === "permitido";
+  const canCreateAndAssignAttribute = catalogAccess(accessContext, "create_and_assign_attribute") === "permitido";
+  const canEditGlobalAttribute = catalogAccess(accessContext, "update_attribute") === "permitido";
+  const canDeactivateGlobalAttribute = catalogAccess(accessContext, "deactivate_attribute") === "permitido";
+  const canReadGlobalAttributes = catalogAccess(accessContext, "read_attributes") === "permitido";
+  const canReactivateGlobalAttribute = catalogAccess(accessContext, "reactivate_attribute") === "permitido";
+  const canUndoGlobalAttribute = catalogAccess(accessContext, "undo_attribute_change") === "permitido";
+  const canCreateCategory = catalogAccess(accessContext, "create_category") === "permitido";
+  const canUpdateCategory = catalogAccess(accessContext, "update_category") === "permitido";
+  const canDeactivateCategory = catalogAccess(accessContext, "deactivate_category") === "permitido";
+  const canReactivateCategory = catalogAccess(accessContext, "reactivate_category") === "permitido";
   const {
-    data: unsortedCategories = [],
+    data: categoryTree = [],
     isLoading,
     isError,
     refetch,
   } = useQuery({
-    queryKey: ["categorias-canonicas"],
-    queryFn: getCategoriasCanonicas,
+    queryKey: ["categorias-arbol", actor],
+    enabled: canReadCategories,
+    queryFn: getCategoriasArbol,
   });
-  const data = [...unsortedCategories].sort((first, second) =>
-    first.nombre.localeCompare(second.nombre, "es", { sensitivity: "base" }),
-  );
+  const data: CategoriaArbol[] = [];
+  const pendingCategories = [...categoryTree].reverse();
+  while (pendingCategories.length) {
+    const category = pendingCategories.pop();
+    if (!category) continue;
+    data.push(category);
+    pendingCategories.push(...[...category.hijos].reverse());
+  }
   const attributes = useQuery({
-    queryKey: ["atributos-canonicos"],
+    queryKey: ["atributos-canonicos", actor],
+    enabled: canReadCategoryAttributes,
     queryFn: async () =>
       (
         await api.get<{ items: AtributoOption[] }>("/atributos", {
@@ -221,38 +313,70 @@ export default function CategoriasPage() {
         })
       ).data.items,
   });
-  const assignments = useQuery({
-    queryKey: ["categorias-atributos"],
-    queryFn: async () => {
-      const items: CategoriaAtributo[] = [];
-      for (let skip = 0; ; skip += 200) {
-        const page = (
-          await api.get<CategoriaAtributo[]>("/categorias-atributos", {
-            params: { skip, limit: 200 },
-          })
-        ).data;
-        items.push(...page);
-        if (page.length < 200) return items;
-      }
-    },
+  const [showAttributeHistory, setShowAttributeHistory] = useState(false);
+  const inactiveAttributes = useQuery({
+    queryKey: ["atributos-historial", actor],
+    enabled: showAttributeHistory && canReadGlobalAttributes,
+    queryFn: async () =>
+      (
+        await api.get<{ items: AtributoOption[] }>("/atributos", {
+          params: { limit: 1000, offset: 0, only_active: false },
+        })
+      ).data.items.filter((attribute) => attribute.activo === false),
+  });
+  const [lifecycleTarget, setLifecycleTarget] = useState<{
+    id: string;
+    nombre: string;
+    activo: boolean;
+  } | null>(null);
+  const attributeLifecycle = useQuery({
+    queryKey: ["atributo-ciclo", actor, lifecycleTarget?.id],
+    enabled: canReadGlobalAttributes && lifecycleTarget !== null,
+    queryFn: async () =>
+      (await api.get(`/atributos/${lifecycleTarget!.id}/reversion`)).data as {
+        can_undo: boolean;
+        can_reactivate: boolean;
+        operacion: string | null;
+        creado_en: string | null;
+        valores_afectados: number;
+        categorias_afectadas: number;
+        motivo: string | null;
+      },
   });
   const { data: catalogs = [] } = useCatalogs();
   const [editing, setEditing] = useState<Categoria | null>(null);
   const [collisionTarget, setCollisionTarget] = useState<{
     id: string;
     nombre: string;
-    parent_id?: string;
-    es_padre: boolean;
+    parent_id?: string | null;
     message: string;
   } | null>(null);
+  const [b3ConfirmationTarget, setB3ConfirmationTarget] =
+    useState<B3ConfirmationDraft | null>(null);
   const create = useMutation({
     mutationFn: createCategoria,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categorias-canonicas"] });
+      queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       closeModal();
     },
-    onError: (error) => {
-      const { message } = parseApiError(error);
+    onError: async (error, payload) => {
+      const { code, message } = parseApiError(error);
+      if (code === "CATEGORY_CHANGE_REQUIRES_CONFIRMATION") {
+        try {
+          const preview = await previewCategoryCreate(payload);
+          setB3ConfirmationTarget({ operation: "create", payload, preview });
+          return;
+        } catch (previewError) {
+          const previewMessage = parseApiError(previewError).message;
+          toast({
+            variant: "destructive",
+            title: "No se pudo previsualizar el impacto B3",
+            description: previewMessage ?? message ?? "Intenta nuevamente.",
+          });
+          return;
+        }
+      }
       toast({
         variant: "destructive",
         title: "No se pudo crear la categoría",
@@ -265,29 +389,53 @@ export default function CategoriasPage() {
       id,
       nombre,
       parent_id,
-      es_padre,
       confirmReset,
     }: {
       id: string;
       nombre: string;
-      parent_id?: string;
-      es_padre: boolean;
+      parent_id?: string | null;
       confirmReset?: boolean;
     }) =>
       updateCategoria(id, {
         nombre,
         parent_id,
-        es_padre,
-        usuario_auditoria: "frontend",
         confirmar_limpieza_colision: confirmReset || undefined,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categorias-canonicas"] });
+      queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       setCollisionTarget(null);
       closeModal();
     },
-    onError: (error, variables) => {
+    onError: async (error, variables) => {
       const { code, message } = parseApiError(error);
+      if (code === "CATEGORY_CHANGE_REQUIRES_CONFIRMATION") {
+        const payload: CategoriaWrite = {
+          nombre: variables.nombre,
+          parent_id: variables.parent_id ?? null,
+          ...(variables.confirmReset
+            ? { confirmar_limpieza_colision: true }
+            : {}),
+        };
+        try {
+          const preview = await previewCategoryMove(variables.id, payload);
+          setB3ConfirmationTarget({
+            operation: "move",
+            payload,
+            categoryId: variables.id,
+            preview,
+          });
+          return;
+        } catch (previewError) {
+          const previewMessage = parseApiError(previewError).message;
+          toast({
+            variant: "destructive",
+            title: "No se pudo previsualizar el impacto B3",
+            description: previewMessage ?? message ?? "Intenta nuevamente.",
+          });
+          return;
+        }
+      }
       if (
         code === "CATEGORY_ATTRIBUTE_COLLISION_REQUIRES_CONFIRMATION" &&
         !variables.confirmReset
@@ -304,6 +452,84 @@ export default function CategoriasPage() {
         variant: "destructive",
         title: "No se pudo mover la categoría",
         description: message ?? "Intenta nuevamente.",
+      });
+    },
+  });
+  const confirmB3 = useMutation({
+    mutationFn: (draft: B3ConfirmationDraft) =>
+      draft.operation === "create"
+        ? confirmCategoryCreate(
+            draft.payload,
+            draft.preview.precondicion_preview,
+          )
+        : confirmCategoryMove(
+            draft.categoryId!,
+            draft.payload,
+            draft.preview.precondicion_preview,
+          ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["categorias-historial"] });
+      setB3ConfirmationTarget(null);
+      setMoveConfirmOpen(false);
+      closeModal();
+      toast({ variant: "success", title: "Categoría actualizada" });
+    },
+    onError: async (error, draft) => {
+      const { code, message } = parseApiError(error);
+      if (code === "CATALOG_PREVIEW_STALE") {
+        try {
+          const preview =
+            draft.operation === "create"
+              ? await previewCategoryCreate(draft.payload)
+              : await previewCategoryMove(draft.categoryId!, draft.payload);
+          if (preview.requiere_confirmacion) {
+            setB3ConfirmationTarget({ ...draft, preview });
+            toast({
+              variant: "destructive",
+              title: "El impacto B3 cambió",
+              description: preview.resumen,
+            });
+            return;
+          }
+          setB3ConfirmationTarget(null);
+          toast({
+            title: "El impacto B3 cambió",
+            description:
+              "Ya no hay productos directos que reclasificar. Revisa el formulario y guarda de nuevo para aplicar el cambio.",
+          });
+          return;
+        } catch (previewError) {
+          setB3ConfirmationTarget(null);
+          toast({
+            variant: "destructive",
+            title: "El preview B3 venció",
+            description:
+              parseApiError(previewError).message ??
+              "Revisa el formulario y vuelve a intentar.",
+          });
+          return;
+        }
+      }
+      if (
+        code === "CATEGORY_ATTRIBUTE_COLLISION_REQUIRES_CONFIRMATION" &&
+        draft.operation === "move" &&
+        draft.categoryId
+      ) {
+        setB3ConfirmationTarget(null);
+        setCollisionTarget({
+          id: draft.categoryId,
+          nombre: draft.payload.nombre,
+          parent_id: draft.payload.parent_id,
+          message: message ?? "El movimiento desplaza atributos heredados.",
+        });
+        return;
+      }
+      toast({
+        variant: "destructive",
+        title: "No se pudo confirmar el cambio de categoría",
+        description: message ?? "El borrador se conserva; vuelve a previsualizar.",
       });
     },
   });
@@ -339,8 +565,8 @@ export default function CategoriasPage() {
           data.find((item) => item.id !== variables.id && item.activo);
         setSelectedCategory(nextActiveCategory ?? null);
       }
-      queryClient.invalidateQueries({ queryKey: ["categorias-canonicas"] });
-      queryClient.invalidateQueries({ queryKey: ["categorias-atributos"] });
+      queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       setCascadeTarget(null);
       if (variables.confirmCascade) {
         toast({
@@ -378,54 +604,272 @@ export default function CategoriasPage() {
       });
     },
   });
+  const reactivateCategory = useMutation({
+    mutationFn: (id: string) => api.post(`/categorias/${id}/reactivar`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["categorias-historial"] });
+      toast({ variant: "success", title: "Categoría reactivada" });
+    },
+    onError: (error) => {
+      const { message } = parseApiError(error);
+      toast({
+        variant: "destructive",
+        title: "No se pudo reactivar la categoría",
+        description: message ?? "Intenta nuevamente.",
+      });
+    },
+  });
   const deactivateAttribute = useMutation({
-    mutationFn: (id: string) => api.delete(`/atributos/${id}`),
+    mutationFn: (input: { id: string; precondition: string }) =>
+      api.delete(`/atributos/${input.id}`, {
+        data: {
+          payload: { confirmar: true },
+          precondicion_preview: input.precondition,
+        },
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: ["atributos-canonicos"],
       });
       await queryClient.invalidateQueries({
-        queryKey: ["categorias-atributos"],
+        queryKey: ["categoria-atributos"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["categoria-atributos"],
       });
       await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
       setAttributeToDeactivate(null);
+      setGlobalAttributeConfirmation(null);
       toast({ variant: "success", title: "Atributo dado de baja" });
+    },
+    onError: (error, input) => {
+      const { code, message } = parseApiError(error);
+      void queryClient.invalidateQueries({ queryKey: ["atributos-canonicos"] });
+      void queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
+      if (code === "CATALOG_PREVIEW_STALE") {
+        setGlobalAttributeConfirmation(null);
+        previewGlobalDeactivation.mutate({
+          id: input.id,
+          nombre: globalAttributeConfirmation?.nombre ?? "Atributo",
+        });
+        return;
+      }
+      toast({
+        variant: "destructive",
+        title: "No se pudo dar de baja el atributo",
+        description: message ?? "La baja no se aplicó; revisa el estado e inténtalo nuevamente.",
+      });
+    },
+  });
+  const [globalAttributeConfirmation, setGlobalAttributeConfirmation] =
+    useState<{
+      id: string;
+      nombre: string;
+      preview: CategoriaAtributoPreview;
+    } | null>(null);
+  const previewGlobalDeactivation = useMutation({
+    mutationFn: async (target: { id: string; nombre: string }) =>
+      (await api.post<CategoriaAtributoPreview>(
+        `/atributos/${target.id}/previsualizar-baja`,
+      )).data,
+    onSuccess: (preview, target) =>
+      setGlobalAttributeConfirmation({ ...target, preview }),
+    onError: (error) => {
+      const { message } = parseApiError(error);
+      toast({
+        variant: "destructive",
+        title: "No se pudo previsualizar la baja global",
+        description: message ?? "El atributo se mantiene activo.",
+      });
+    },
+  });
+  const undoAttributeLifecycle = useMutation({
+    mutationFn: (id: string) => api.post(`/atributos/${id}/revertir`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["atributos-canonicos"] });
+      await queryClient.invalidateQueries({ queryKey: ["atributos-historial"] });
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
+      setLifecycleTarget(null);
+      toast({ variant: "success", title: "Último cambio revertido" });
+    },
+    onError: async (error) => {
+      const { message } = parseApiError(error);
+      if (lifecycleTarget)
+        await queryClient.invalidateQueries({
+          queryKey: ["atributo-ciclo", actor, lifecycleTarget.id],
+        });
+      toast({
+        variant: "destructive",
+        title: "No se pudo restaurar el atributo",
+        description: message ?? "El estado cambió; revisa la disponibilidad y conserva el borrador.",
+      });
+    },
+  });
+  const reactivateAttributeLifecycle = useMutation({
+    mutationFn: (id: string) => api.post(`/atributos/${id}/reactivar`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["atributos-canonicos"] });
+      await queryClient.invalidateQueries({ queryKey: ["atributos-historial"] });
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
+      setLifecycleTarget(null);
+      toast({ variant: "success", title: "Atributo reactivado" });
+    },
+    onError: async (error) => {
+      const { message } = parseApiError(error);
+      if (lifecycleTarget)
+        await queryClient.invalidateQueries({
+          queryKey: ["atributo-ciclo", actor, lifecycleTarget.id],
+        });
+      toast({
+        variant: "destructive",
+        title: "No se pudo reactivar el atributo",
+        description: message ?? "El estado cambió; revisa el historial antes de reintentar.",
+      });
     },
   });
   const [assignmentToConfigure, setAssignmentToConfigure] =
     useState<AtributoAplicable | null>(null);
   const [assignmentRequired, setAssignmentRequired] = useState(false);
+  const [assignmentOrder, setAssignmentOrder] = useState("");
   const [assignmentDefault, setAssignmentDefault] = useState("");
   const [applyDefaultToExisting, setApplyDefaultToExisting] = useState(false);
   const [assignmentFormError, setAssignmentFormError] = useState("");
   const [backfillConfirmOpen, setBackfillConfirmOpen] = useState(false);
+  const [assignmentPreview, setAssignmentPreview] = useState<{
+    draft: AssignmentUpdate;
+    preview: CategoriaAtributoPreview;
+  } | null>(null);
   const updateAssignment = useMutation({
-    mutationFn: async (input: AssignmentUpdate) =>
-      (
-        await api.put(`/categorias-atributos/${input.id}`, {
+    mutationFn: async (input: AssignmentUpdate) => {
+      if (input.override) {
+        return assignExistingAttribute(input.categoria_id, {
+          atributo_id: input.atributo_id,
+          orden: input.orden,
           obligatorio: input.obligatorio,
           valor_default: input.valor_default,
           aplicar_default_a_existentes: input.aplicar_default_a_existentes,
-          usuario_auditoria: "frontend",
+          precondicion_preview: input.precondicion_preview,
+        });
+      }
+      return (
+        await api.put(`/categorias/${input.categoria_id}/atributos/${input.id}`, {
+          orden: input.orden,
+          obligatorio: input.obligatorio,
+          valor_default: input.valor_default,
+          aplicar_default_a_existentes: input.aplicar_default_a_existentes,
+          precondicion_preview: input.precondicion_preview,
         })
-      ).data,
+      ).data;
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ["categorias-atributos"],
+        queryKey: ["categoria-atributos"],
       });
       setAssignmentToConfigure(null);
       setAssignmentFormError("");
       setBackfillConfirmOpen(false);
+      setAssignmentPreview(null);
       toast({
         variant: "success",
         title: "Configuración del atributo actualizada",
       });
     },
-    onError: (error) => {
-      const { message } = parseApiError(error);
+    onError: (error, input) => {
+      const { code, message } = parseApiError(error);
       setAssignmentFormError(
         message ?? "No se pudo actualizar la configuración del atributo.",
       );
+      if (code === "CATALOG_PREVIEW_STALE") {
+        const draft = { ...input };
+        delete draft.precondicion_preview;
+        setAssignmentPreview(null);
+        setBackfillConfirmOpen(false);
+        void queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+        previewAssignment.mutate(draft);
+      }
+    },
+  });
+  const previewAssignment = useMutation({
+    mutationFn: async (draft: AssignmentUpdate) =>
+      previewCategoriaAtributo(
+        draft.categoria_id,
+        draft.override ? null : draft.id,
+        {
+          ...(draft.override ? { atributo_id: draft.atributo_id } : {}),
+          orden: draft.orden,
+          obligatorio: draft.obligatorio,
+          valor_default: draft.valor_default,
+          aplicar_default_a_existentes: draft.aplicar_default_a_existentes,
+        },
+      ),
+    onSuccess: (preview, draft) => {
+      setAssignmentPreview({ draft, preview });
+      setBackfillConfirmOpen(true);
+      setAssignmentFormError("");
+    },
+    onError: (error) => {
+      const { message } = parseApiError(error);
+      setAssignmentFormError(
+        message ?? "No se pudo previsualizar la configuración del atributo.",
+      );
+    },
+  });
+  const previewLocalRemoval = useMutation({
+    mutationFn: (input: {
+      categoriaId: string;
+      mappingId: string;
+      attributeName: string;
+    }) => previewRemoveCategoriaAtributo(input.categoriaId, input.mappingId),
+    onSuccess: (preview, input) =>
+      setLocalRemovalConfirmation({ ...input, preview }),
+    onError: (error) => {
+      const { message } = parseApiError(error);
+      toast({
+        variant: "destructive",
+        title: "No se pudo previsualizar el retiro local",
+        description:
+          message ?? "La relación y los valores se mantienen sin cambios.",
+      });
+    },
+  });
+  const removeLocalAssignment = useMutation({
+    mutationFn: (confirmation: NonNullable<typeof localRemovalConfirmation>) =>
+      removeCategoriaAtributo(
+        confirmation.categoriaId,
+        confirmation.mappingId,
+        confirmation.preview.precondicion_preview,
+      ),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      setLocalRemovalConfirmation(null);
+      toast({
+        variant: "success",
+        title: "Atributo quitado de esta categoría",
+        description: `${result.valores_desactivados} valores dejaron de aplicar.`,
+      });
+    },
+    onError: async (error, confirmation) => {
+      const { code, message } = parseApiError(error);
+      if (code === "CATALOG_PREVIEW_STALE") {
+        await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+        setLocalRemovalConfirmation(null);
+        previewLocalRemoval.mutate({
+          categoriaId: confirmation.categoriaId,
+          mappingId: confirmation.mappingId,
+          attributeName: confirmation.attributeName,
+        });
+        return;
+      }
+      toast({
+        variant: "destructive",
+        title: "No se pudo quitar el atributo local",
+        description: message ?? "No se aplicaron cambios; el borrador se conserva.",
+      });
     },
   });
   const [open, setOpen] = useState(false);
@@ -433,13 +877,37 @@ export default function CategoriasPage() {
   const [nombre, setNombre] = useState("");
   const [parentId, setParentId] = useState("");
   const [search, setSearch] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const categoryHistory = useQuery({
+    queryKey: ["categorias-historial", actor],
+    enabled: showHistory && canReadCategories,
+    queryFn: async () => {
+      const response = await api.get<{ items: Categoria[] }>("/categorias", {
+        params: { limit: 1000, offset: 0, only_active: false },
+      });
+      return response.data.items.filter((category) => !category.activo);
+    },
+  });
   const filtered = data.filter((item) =>
     item.nombre.toLowerCase().includes(search.toLowerCase()),
   );
   const [selectedCategory, setSelectedCategory] = useState<Categoria | null>(
     null,
   );
+  const effectiveAttributes = useQuery({
+    queryKey: ["categoria-atributos", actor, selectedCategory?.id, "effective"],
+    enabled: canReadCategoryAttributes && selectedCategory !== null,
+    queryFn: () => getCategoriaAtributosEfectivos(selectedCategory!.id),
+  });
+  const ownAttributes = useQuery({
+    queryKey: ["categoria-atributos", actor, selectedCategory?.id, "own"],
+    enabled: canReadCategoryAttributes && selectedCategory !== null,
+    queryFn: () => getCategoriaAtributosPropios(selectedCategory!.id),
+  });
   const [newAttributeOpen, setNewAttributeOpen] = useState(false);
+  const [attributeMode, setAttributeMode] = useState<"existing" | "new">("existing");
+  const [existingAttributeSearch, setExistingAttributeSearch] = useState("");
+  const [selectedExistingAttributeId, setSelectedExistingAttributeId] = useState("");
   const [editingAttributeId, setEditingAttributeId] = useState<string | null>(
     null,
   );
@@ -452,6 +920,19 @@ export default function CategoriasPage() {
   const [attributeCatalogId, setAttributeCatalogId] = useState("");
   const [attributeRequired, setAttributeRequired] = useState(false);
   const [attributeDefault, setAttributeDefault] = useState("");
+  const [attributeApplyDefaultToExisting, setAttributeApplyDefaultToExisting] =
+    useState(false);
+  const [createAttributeConfirmation, setCreateAttributeConfirmation] =
+    useState<{
+      draft: CategoryAttributeCreatePayload;
+      preview: CategoriaAtributoPreview;
+    } | null>(null);
+  const [localRemovalConfirmation, setLocalRemovalConfirmation] = useState<{
+    categoriaId: string;
+    mappingId: string;
+    attributeName: string;
+    preview: CategoriaAtributoPreview;
+  } | null>(null);
   const [allowNegative, setAllowNegative] = useState(false);
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
@@ -472,37 +953,26 @@ export default function CategoriasPage() {
         ["integer", "decimal"].includes(attributeType) && allowNegative,
       min_value: minValue ? Number(minValue) : undefined,
       max_value: maxValue ? Number(maxValue) : undefined,
-      usuario_auditoria: "frontend",
     };
   };
   const assignmentCounts = new Map(
-    data.map((category) => [
-      category.id,
-      getAtributosAplicables(category, data, assignments.data ?? []).length,
-    ]),
+    data.map((category) => [category.id, category.atributos_efectivos_count]),
   );
-  const categoryAssignments = selectedCategory
-    ? getAtributosAplicables(
-        selectedCategory,
-        data,
-        assignments.data ?? [],
-      ).sort((first, second) =>
-        (
-          attributes.data?.find(
-            (attribute) => attribute.id === first.atributo_id,
-          )?.nombre ?? ""
-        ).localeCompare(
-          attributes.data?.find(
-            (attribute) => attribute.id === second.atributo_id,
-          )?.nombre ?? "",
-          "es",
-          { sensitivity: "base" },
-        ),
-      )
-    : [];
+  const categoryAssignments = effectiveAttributes.data ?? [];
+  const ownMappingIds = new Set(
+    ownAttributes.data?.map((assignment) => assignment.mapping_id) ?? [],
+  );
+  const existingAttributeOptions = (attributes.data ?? []).filter((attribute) =>
+    `${attribute.nombre} ${attribute.codigo ?? ""} ${attribute.tipo_dato} ${attribute.unidad?.nombre ?? ""} ${attribute.unidad?.simbolo ?? ""} ${attribute.unidad?.magnitud_codigo ?? ""} ${attribute.unidad_id ? "unidad configurada" : ""}`
+      .toLocaleLowerCase()
+      .includes(existingAttributeSearch.trim().toLocaleLowerCase()),
+  );
+  const selectedExistingMapping = categoryAssignments.find(
+    (assignment) => assignment.atributo_id === selectedExistingAttributeId,
+  );
   const roots = search.trim()
     ? filtered
-    : data.filter((item) => !item.parent_id);
+    : categoryTree;
   const excludedParentIds = new Set<string>();
   if (editing) {
     const pendingIds = [editing.id];
@@ -519,29 +989,33 @@ export default function CategoriasPage() {
   }
   const parentOptions = data.filter(
     (category) =>
-      category.activo &&
       !category.is_default &&
       !excludedParentIds.has(category.id),
   );
   const createAttribute = useMutation({
-    mutationFn: async () => {
-      if (
-        attributeType === "select" &&
-        !buildAttributeDefinition().select_options?.length
-      ) {
-        throw new Error("Un atributo select requiere al menos una opción.");
-      }
-      return (
+    mutationFn: async (input: {
+      draft: CategoryAttributeCreatePayload;
+      precondition?: string;
+    }) =>
+      (
         await api.post("/atributos", {
-          categoria_id: selectedCategory!.id,
-          ...buildAttributeDefinition(),
-          obligatorio: attributeRequired,
-          valor_default: attributeDefault || undefined,
+          ...input.draft,
+          ...(input.precondition
+            ? { precondicion_preview: input.precondition }
+            : {}),
         })
-      ).data;
-    },
-    onError: (error) => {
-      const { message } = parseApiError(error);
+      ).data,
+    onError: (error, input) => {
+      const { code, message } = parseApiError(error);
+      setAttributeFormError(
+        message ?? "No se pudo crear el atributo. El formulario se conserva.",
+      );
+      if (code === "CATALOG_PREVIEW_STALE") {
+        setCreateAttributeConfirmation(null);
+        void queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+        previewCreateAttribute.mutate(input.draft);
+        return;
+      }
       toast({
         variant: "destructive",
         title: "No se pudo crear el atributo",
@@ -551,17 +1025,75 @@ export default function CategoriasPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["atributos-canonicos"] });
-      queryClient.invalidateQueries({ queryKey: ["categorias-atributos"] });
+      queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       setNewAttributeOpen(false);
       setAttributeName("");
       setAttributeOptions("");
       setAttributeCatalogId("");
       setAttributeRequired(false);
       setAttributeDefault("");
+      setAttributeApplyDefaultToExisting(false);
+      setCreateAttributeConfirmation(null);
       setAllowNegative(false);
       setMinValue("");
       setMaxValue("");
       toast({ variant: "success", title: "Atributo creado y asignado" });
+    },
+  });
+  const previewCreateAttribute = useMutation({
+    mutationFn: (draft: CategoryAttributeCreatePayload) =>
+      previewCreateCategoryAttribute(draft),
+    onSuccess: (preview, draft) => {
+      setCreateAttributeConfirmation({ draft, preview });
+      setAttributeFormError("");
+    },
+    onError: (error) => {
+      const { message } = parseApiError(error);
+      setAttributeFormError(
+        message ?? "No se pudo previsualizar la creación del atributo.",
+      );
+    },
+  });
+  const submitCreateAttribute = () => {
+    if (!selectedCategory) return;
+    const definition = buildAttributeDefinition();
+    if (attributeType === "select" && !definition.select_options?.length) {
+      setAttributeFormError("Un atributo select requiere al menos una opción.");
+      return;
+    }
+    const draft: CategoryAttributeCreatePayload = {
+      categoria_id: selectedCategory.id,
+      ...definition,
+      obligatorio: attributeRequired,
+      valor_default: attributeDefault.trim() || null,
+      aplicar_default_a_existentes: attributeApplyDefaultToExisting,
+    };
+    if (draft.obligatorio || draft.aplicar_default_a_existentes) {
+      previewCreateAttribute.mutate(draft);
+      return;
+    }
+    createAttribute.mutate({ draft });
+  };
+  const assignExisting = useMutation({
+    mutationFn: () =>
+      assignExistingAttribute(selectedCategory!.id, {
+        atributo_id: selectedExistingAttributeId,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
+      await queryClient.invalidateQueries({ queryKey: ["categorias-arbol"] });
+      setNewAttributeOpen(false);
+      setSelectedExistingAttributeId("");
+      setExistingAttributeSearch("");
+      toast({ variant: "success", title: "Atributo asignado" });
+    },
+    onError: (error) => {
+      const { code, message } = parseApiError(error);
+      setAttributeFormError(
+        code === "ATTRIBUTE_ALREADY_ASSIGNED"
+          ? "Este atributo ya está asignado a la categoría."
+          : message ?? "No se pudo asignar el atributo.",
+      );
     },
   });
   const previewAttribute = useMutation({
@@ -583,8 +1115,12 @@ export default function CategoriasPage() {
       setAttributeFormError("");
     },
     onError: (error) => {
-      const { message } = parseApiError(error);
-      setAttributeFormError(message ?? "No se pudo previsualizar la edición.");
+      const { code, message } = parseApiError(error);
+      setAttributeFormError(
+        code === "PRODUCT_REQUIRED_ATTRIBUTES_MISSING"
+          ? `${code}: ${message ?? "La conversión dejaría productos obligatorios sin un valor válido."}`
+          : message ?? "No se pudo previsualizar la edición.",
+      );
     },
   });
   const editAttribute = useMutation({
@@ -600,7 +1136,7 @@ export default function CategoriasPage() {
         queryKey: ["atributos-canonicos"],
       });
       await queryClient.invalidateQueries({
-        queryKey: ["categorias-atributos"],
+        queryKey: ["categoria-atributos"],
       });
       await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
       setAttributePreview(null);
@@ -649,38 +1185,73 @@ export default function CategoriasPage() {
     }
     previewAttribute.mutate({ id: editingAttributeId, definition });
   };
-  const openConfigureAssignment = (assignment: AtributoAplicable) => {
-    setAssignmentToConfigure(assignment);
+  const openConfigureAssignment = (
+    assignment: CategoriaAtributoEfectivo,
+  ) => {
+    setAssignmentToConfigure({
+      id: assignment.mapping_id,
+      categoria_id: selectedCategory?.id ?? "",
+      atributo_id: assignment.atributo_id,
+      orden: assignment.orden,
+      obligatorio: assignment.obligatorio,
+      valor_default:
+        assignment.valor_default == null
+          ? null
+          : String(assignment.valor_default),
+      categoria_origen_id: assignment.categoria_origen.id,
+      profundidad: assignment.profundidad,
+    });
     setAssignmentRequired(assignment.obligatorio ?? false);
-    setAssignmentDefault(assignment.valor_default ?? "");
+    setAssignmentOrder(
+      assignment.orden == null ? "" : String(assignment.orden),
+    );
+    setAssignmentDefault(
+      assignment.valor_default == null ? "" : String(assignment.valor_default),
+    );
     setApplyDefaultToExisting(false);
     setAssignmentFormError("");
     setBackfillConfirmOpen(false);
+    setAssignmentPreview(null);
     setOpenAttributeMenuId(null);
   };
-  const saveAssignmentConfiguration = () => {
-    if (!assignmentToConfigure) return;
-    updateAssignment.mutate({
+  const buildAssignmentUpdate = (): AssignmentUpdate | null => {
+    if (!assignmentToConfigure || !selectedCategory) return null;
+    return {
       id: assignmentToConfigure.id,
+      categoria_id: selectedCategory.id,
+      atributo_id: assignmentToConfigure.atributo_id,
+      override: assignmentToConfigure.profundidad > 0,
+      orden: assignmentOrder.trim() ? Number(assignmentOrder) : null,
       obligatorio: assignmentRequired,
-      valor_default: assignmentRequired ? assignmentDefault.trim() : undefined,
-      aplicar_default_a_existentes:
-        assignmentRequired && applyDefaultToExisting,
+      valor_default: assignmentDefault.trim() || null,
+      aplicar_default_a_existentes: applyDefaultToExisting,
+    };
+  };
+  const saveAssignmentConfiguration = async (
+    draft: AssignmentUpdate,
+    precondition?: string,
+  ) => {
+    await updateAssignment.mutateAsync({
+      ...draft,
+      ...(precondition ? { precondicion_preview: precondition } : {}),
     });
   };
   const submitAssignmentConfiguration = () => {
     if (!assignmentToConfigure) return;
-    if (assignmentRequired && !assignmentDefault.trim()) {
+    if (applyDefaultToExisting && !assignmentDefault.trim()) {
       setAssignmentFormError(
-        "Ingresa un valor por defecto para hacer obligatorio este atributo.",
+        "Ingresa un valor por defecto explícito para aplicarlo a productos existentes.",
       );
       return;
     }
-    if (assignmentRequired && applyDefaultToExisting) {
-      setBackfillConfirmOpen(true);
+    const draft = buildAssignmentUpdate();
+    if (!draft) return;
+    if (draft.obligatorio || draft.aplicar_default_a_existentes) {
+      setAssignmentPreview(null);
+      previewAssignment.mutate(draft);
       return;
     }
-    saveAssignmentConfiguration();
+    void saveAssignmentConfiguration(draft);
   };
   const closeModal = () => {
     setOpen(false);
@@ -698,9 +1269,7 @@ export default function CategoriasPage() {
     if (!editing) {
       create.mutate({
         nombre,
-        es_padre: !parentId,
         parent_id: parentId || undefined,
-        usuario_auditoria: "frontend",
       });
       return;
     }
@@ -711,8 +1280,7 @@ export default function CategoriasPage() {
     update.mutate({
       id: editing.id,
       nombre,
-      parent_id: parentId || undefined,
-      es_padre: !parentId,
+      parent_id: parentId || null,
     });
   };
   return (
@@ -721,7 +1289,7 @@ export default function CategoriasPage() {
         title="Categorías"
         description="Organiza categorías y sus atributos"
         actions={
-          <Button
+          canCreateCategory ? <Button
             onClick={() => {
               setEditing(null);
               setNombre("");
@@ -731,7 +1299,7 @@ export default function CategoriasPage() {
           >
             <Plus className="mr-2 h-4 w-4" />
             Nueva categoría
-          </Button>
+          </Button> : null
         }
       />
       <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
@@ -742,8 +1310,28 @@ export default function CategoriasPage() {
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar categoría"
             />
+            <Button
+              className="mt-2"
+              variant={showHistory ? "secondary" : "outline"}
+              onClick={() => setShowHistory((current) => !current)}
+              disabled={!canReadCategories}
+            >
+              {showHistory ? "Ocultar historial" : "Historial"}
+            </Button>
           </div>
-          {isLoading ? (
+          {permissions.isPending ? (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              Verificando permisos...
+            </p>
+          ) : permissions.isError ? (
+            <p className="p-6 text-center text-sm text-destructive">
+              No se pudieron verificar los permisos de categorías.
+            </p>
+          ) : !canReadCategories ? (
+            <p className="p-6 text-center text-sm text-destructive">
+              No tienes permiso para consultar categorías.
+            </p>
+          ) : isLoading ? (
             <p className="p-6 text-center text-sm text-muted-foreground">
               Cargando categorías...
             </p>
@@ -765,7 +1353,6 @@ export default function CategoriasPage() {
               <CategoryNode
                 key={category.id}
                 category={category}
-                categories={data}
                 assignmentCounts={assignmentCounts}
                 assignmentCount={assignmentCounts.get(category.id) ?? 0}
                 selectedCategoryId={selectedCategory?.id ?? null}
@@ -781,8 +1368,40 @@ export default function CategoriasPage() {
                 onDelete={(item) =>
                   remove.mutate({ id: item.id, confirmCascade: false })
                 }
+                canUpdate={canUpdateCategory}
+                canDeactivate={canDeactivateCategory}
               />
             ))
+          )}
+          {showHistory && canReadCategories && (
+            <div className="border-t p-3" aria-label="Historial de categorías">
+              <h3 className="mb-2 text-sm font-semibold">Categorías inactivas</h3>
+              {categoryHistory.isLoading ? (
+                <p className="text-sm text-muted-foreground">Cargando historial...</p>
+              ) : categoryHistory.isError ? (
+                <p className="text-sm text-destructive">No se pudo cargar el historial.</p>
+              ) : categoryHistory.data?.length ? (
+                <ul className="divide-y">
+                  {categoryHistory.data.map((category) => (
+                    <li key={category.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0 truncate text-sm">{category.nombre}</span>
+                      {canReactivateCategory && !category.is_default && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={reactivateCategory.isPending}
+                          onClick={() => reactivateCategory.mutate(category.id)}
+                        >
+                          Reactivar
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay categorías inactivas.</p>
+              )}
+            </div>
           )}
         </section>
         <section className="min-h-64 rounded-lg border bg-card p-4">
@@ -797,12 +1416,59 @@ export default function CategoriasPage() {
                     Atributos propios y heredados
                   </p>
                 </div>
-                <Button onClick={() => setNewAttributeOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nuevo atributo
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {canReadGlobalAttributes && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowAttributeHistory((current) => !current)}
+                    >
+                      <History className="mr-2 h-4 w-4" />
+                      {showAttributeHistory ? "Ocultar historial" : "Historial de atributos"}
+                    </Button>
+                  )}
+                  {(canAssignAttribute || canCreateAndAssignAttribute) && (
+                    <Button
+                      onClick={() => {
+                        setAttributeMode("existing");
+                        setSelectedExistingAttributeId("");
+                        setExistingAttributeSearch("");
+                        setNewAttributeOpen(true);
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Agregar atributo
+                    </Button>
+                  )}
+                </div>
               </div>
-              {assignments.isLoading || attributes.isLoading ? (
+              {!canReadCategoryAttributes ? (
+                <p className="py-5 text-sm text-destructive">
+                  No tienes permiso para consultar atributos de categoría.
+                </p>
+              ) : effectiveAttributes.isError ||
+                ownAttributes.isError ||
+                attributes.isError ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 py-5" role="alert">
+                  <p className="text-sm text-destructive">
+                    No se pudieron cargar los atributos efectivos de esta categoría.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      void effectiveAttributes.refetch();
+                      void ownAttributes.refetch();
+                      void attributes.refetch();
+                    }}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reintentar
+                  </Button>
+                </div>
+              ) : effectiveAttributes.isLoading ||
+                ownAttributes.isLoading ||
+                attributes.isLoading ? (
                 <p className="py-5 text-sm text-muted-foreground">
                   Cargando atributos...
                 </p>
@@ -812,42 +1478,46 @@ export default function CategoriasPage() {
                     const attribute = attributes.data?.find(
                       (item) => item.id === assignment.atributo_id,
                     );
-                    const inherited = assignment.profundidad > 0;
-                    const sourceCategory = data.find(
-                      (item) => item.id === assignment.categoria_origen_id,
-                    );
+                    const inherited = !ownMappingIds.has(assignment.mapping_id);
                     return (
                       <div
-                        key={assignment.id}
-                        className="grid grid-cols-[minmax(0,1fr)_minmax(68px,auto)_minmax(78px,auto)_36px] items-center gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_72px_88px_minmax(112px,128px)_36px] sm:gap-3"
+                        key={assignment.mapping_id}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(0,1fr)_72px_88px_minmax(112px,128px)_36px] sm:gap-3"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {attribute?.nombre ?? "Atributo inactivo"}
+                        <div className="col-span-2 min-w-0 sm:col-span-1">
+                          <p className="break-words text-sm font-medium sm:truncate">
+                            {assignment.nombre}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {attribute?.tipo_dato ?? ""}
+                            {assignment.tipo_dato}
+                            {assignment.unidad
+                              ? ` · ${assignment.unidad.simbolo}`
+                              : ""}
                           </p>
                         </div>
-                        <Badge
-                          variant={inherited ? "secondary" : "default"}
-                          title={
-                            inherited
-                              ? `Heredado de ${sourceCategory?.nombre ?? "categoría superior"}`
-                              : "Asignado directamente"
-                          }
-                        >
-                          {inherited ? "Heredado" : "Propio"}
-                        </Badge>
-                        <Badge
-                          variant={
-                            assignment.obligatorio ? "default" : "secondary"
-                          }
-                        >
-                          {assignment.obligatorio ? "Obligatorio" : "Opcional"}
-                        </Badge>
+                        <div className="flex items-center gap-2 sm:contents">
+                          <Badge
+                            variant={inherited ? "secondary" : "default"}
+                            title={
+                              inherited
+                                ? `Heredado de ${assignment.categoria_origen.nombre}`
+                                : "Asignado directamente"
+                            }
+                          >
+                            {inherited ? "Heredado" : "Propio"}
+                          </Badge>
+                          <Badge
+                            variant={
+                              assignment.obligatorio ? "default" : "secondary"
+                            }
+                          >
+                            {assignment.obligatorio ? "Obligatorio" : "Opcional"}
+                          </Badge>
+                        </div>
                         <span className="hidden max-w-32 truncate text-xs text-muted-foreground sm:block">
-                          {assignment.valor_default || "Sin valor por defecto"}
+                          {assignment.valor_default == null || assignment.valor_default === ""
+                            ? "Sin valor por defecto"
+                            : String(assignment.valor_default)}
                         </span>
                         <div
                           className="relative justify-self-end"
@@ -862,67 +1532,125 @@ export default function CategoriasPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={`Acciones de ${attribute?.nombre ?? "atributo"}`}
+                            aria-label={`Acciones de ${assignment.nombre}`}
                             aria-expanded={
-                              openAttributeMenuId === assignment.id
+                              openAttributeMenuId === assignment.mapping_id
                             }
                             aria-haspopup="menu"
                             onClick={() =>
                               setOpenAttributeMenuId((current) =>
-                                current === assignment.id
+                                current === assignment.mapping_id
                                   ? null
-                                  : assignment.id,
+                                  : assignment.mapping_id,
                               )
                             }
                           >
                             <ChevronDown
-                              className={`h-4 w-4 transition-transform ${openAttributeMenuId === assignment.id ? "rotate-180" : ""}`}
+                              className={`h-4 w-4 transition-transform ${openAttributeMenuId === assignment.mapping_id ? "rotate-180" : ""}`}
                             />
                           </Button>
-                          {openAttributeMenuId === assignment.id && (
+                          {openAttributeMenuId === assignment.mapping_id && (
                             <div
                               className="absolute right-0 z-20 mt-1 min-w-36 rounded-md border bg-popover p-1 shadow-md"
                               role="menu"
-                              aria-label={`Acciones de ${attribute?.nombre ?? "atributo"}`}
+                              aria-label={`Acciones de ${assignment.nombre}`}
                             >
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
-                                disabled={!attribute}
-                                onClick={() =>
-                                  openEditAttribute(assignment.atributo_id)
-                                }
-                              >
-                                <Pencil className="h-4 w-4" />
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
-                                onClick={() =>
-                                  openConfigureAssignment(assignment)
-                                }
-                              >
-                                <ListChecks className="h-4 w-4" />
-                                Configurar categoría
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-destructive hover:bg-muted"
-                                onClick={() => {
-                                  setOpenAttributeMenuId(null);
-                                  setAttributeToDeactivate({
-                                    id: assignment.atributo_id,
-                                    nombre: attribute?.nombre ?? "Atributo",
-                                  });
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Eliminar
-                              </button>
+                              {inherited && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
+                                  onClick={() => {
+                                    const origin = data.find(
+                                      (item) => item.id === assignment.categoria_origen.id,
+                                    );
+                                    if (origin) setSelectedCategory(origin);
+                                    setOpenAttributeMenuId(null);
+                                  }}
+                                >
+                                  Ver categoría de origen
+                                </button>
+                              )}
+                              {canAssignAttribute && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
+                                  onClick={() => openConfigureAssignment(assignment)}
+                                >
+                                  <ListChecks className="h-4 w-4" />
+                                  {inherited
+                                    ? "Sobrescribir configuración aquí"
+                                    : "Configurar categoría"}
+                                </button>
+                              )}
+                              {!inherited && canAssignAttribute && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-destructive hover:bg-muted"
+                                  disabled={previewLocalRemoval.isPending}
+                                  onClick={() => {
+                                    setOpenAttributeMenuId(null);
+                                    previewLocalRemoval.mutate({
+                                      categoriaId: selectedCategory!.id,
+                                      mappingId: assignment.mapping_id,
+                                      attributeName: assignment.nombre,
+                                    });
+                                  }}
+                                >
+                                  {previewLocalRemoval.isPending
+                                    ? "Calculando impacto..."
+                                    : "Quitar de esta categoría"}
+                                </button>
+                              )}
+                              {canEditGlobalAttribute && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
+                                  disabled={!attribute}
+                                  onClick={() => openEditAttribute(assignment.atributo_id)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Editar definición global
+                                </button>
+                              )}
+                              {(canUndoGlobalAttribute || canReactivateGlobalAttribute) && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-muted"
+                                  onClick={() => {
+                                    setOpenAttributeMenuId(null);
+                                    setLifecycleTarget({
+                                      id: assignment.atributo_id,
+                                      nombre: assignment.nombre,
+                                      activo: true,
+                                    });
+                                  }}
+                                >
+                                  <History className="h-4 w-4" />
+                                  Revisar último cambio global
+                                </button>
+                              )}
+                              {canDeactivateGlobalAttribute && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm text-destructive hover:bg-muted"
+                                  onClick={() => {
+                                    setOpenAttributeMenuId(null);
+                                    setAttributeToDeactivate({
+                                      id: assignment.atributo_id,
+                                      nombre: assignment.nombre,
+                                    });
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Dar de baja atributo global
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -935,6 +1663,50 @@ export default function CategoriasPage() {
                   Esta categoría y sus categorías superiores no tienen atributos
                   asignados.
                 </p>
+              )}
+              {showAttributeHistory && canReadGlobalAttributes && (
+                <div className="mt-4 border-t pt-4" aria-label="Historial de atributos">
+                  <h3 className="mb-2 text-sm font-semibold">Atributos inactivos</h3>
+                  {inactiveAttributes.isLoading ? (
+                    <p className="text-sm text-muted-foreground">Cargando historial...</p>
+                  ) : inactiveAttributes.isError ? (
+                    <div className="flex items-center justify-between gap-3" role="alert">
+                      <p className="text-sm text-destructive">No se pudo cargar el historial de atributos.</p>
+                      <Button type="button" variant="outline" onClick={() => void inactiveAttributes.refetch()}>
+                        <RefreshCw className="mr-2 h-4 w-4" />Reintentar
+                      </Button>
+                    </div>
+                  ) : inactiveAttributes.data?.length ? (
+                    <ul className="divide-y border-y">
+                      {inactiveAttributes.data.map((attribute) => (
+                        <li key={attribute.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                          <span className="min-w-0">
+                            <span className="block break-words text-sm font-medium">{attribute.nombre}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {attribute.tipo_dato} · {attribute.codigo ?? ""}
+                              {attribute.actualizado_en ? ` · ${new Date(attribute.actualizado_en).toLocaleString("es-EC")}` : ""}
+                            </span>
+                          </span>
+                          {(canReactivateGlobalAttribute || canUndoGlobalAttribute) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setLifecycleTarget({
+                                id: attribute.id,
+                                nombre: attribute.nombre,
+                                activo: false,
+                              })}
+                            >
+                              Revisar ciclo
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="py-3 text-sm text-muted-foreground">No hay atributos inactivos.</p>
+                  )}
+                </div>
               )}
             </>
           ) : (
@@ -988,7 +1760,7 @@ export default function CategoriasPage() {
           </FormField>
           {!editing &&
             parentId &&
-            !data.find((category) => category.id === parentId)?.es_padre && (
+            !data.find((category) => category.id === parentId)?.tiene_hijos && (
               <p className="text-sm text-muted-foreground">
                 Si esta categoría contiene productos, pasarán a una subcategoría
                 temporal “Sin clasificar” para su posterior recategorización.
@@ -1002,11 +1774,14 @@ export default function CategoriasPage() {
           setNewAttributeOpen(false);
           setEditingAttributeId(null);
           setAttributeFormError("");
+          setSelectedExistingAttributeId("");
+          setExistingAttributeSearch("");
+          setCreateAttributeConfirmation(null);
         }}
         title={
           editingAttributeId
             ? "Editar atributo"
-            : `Nuevo atributo · ${selectedCategory?.nombre ?? "Categoría"}`
+            : `${attributeMode === "existing" ? "Agregar atributo" : "Crear atributo"} · ${selectedCategory?.nombre ?? "Categoría"}`
         }
         footer={
           <div className="flex gap-2">
@@ -1016,6 +1791,8 @@ export default function CategoriasPage() {
                 setNewAttributeOpen(false);
                 setEditingAttributeId(null);
                 setAttributeFormError("");
+                setSelectedExistingAttributeId("");
+                setExistingAttributeSearch("");
               }}
             >
               Cancelar
@@ -1024,23 +1801,41 @@ export default function CategoriasPage() {
               onClick={() =>
                 editingAttributeId
                   ? submitAttributeEdit()
-                  : createAttribute.mutate()
+                  : attributeMode === "existing"
+                    ? assignExisting.mutate()
+                    : submitCreateAttribute()
               }
               disabled={
+                assignExisting.isPending ||
                 createAttribute.isPending ||
+                previewCreateAttribute.isPending ||
                 previewAttribute.isPending ||
                 editAttribute.isPending ||
-                !attributeName.trim() ||
-                (attributeType === "select" && !attributeOptions.trim())
+                (editingAttributeId
+                  ? !attributeName.trim() ||
+                    (attributeType === "select" && !attributeOptions.trim())
+                  : attributeMode === "existing"
+                    ? !selectedExistingAttributeId ||
+                      !canAssignAttribute ||
+                      Boolean(selectedExistingMapping && ownMappingIds.has(selectedExistingMapping.mapping_id))
+                    : !attributeName.trim() ||
+                      !canCreateAndAssignAttribute ||
+                      (attributeType === "select" && !attributeOptions.trim()))
               }
             >
               {editingAttributeId
                 ? previewAttribute.isPending
                   ? "Calculando..."
                   : "Previsualizar cambios"
-                : createAttribute.isPending
-                  ? "Guardando..."
-                  : "Crear y asignar"}
+                : attributeMode === "existing"
+                  ? assignExisting.isPending
+                    ? "Asignando..."
+                    : "Asignar atributo"
+                  : createAttribute.isPending
+                    ? "Guardando..."
+                    : previewCreateAttribute.isPending
+                      ? "Calculando impacto..."
+                    : "Crear y asignar"}
             </Button>
           </div>
         }
@@ -1051,6 +1846,93 @@ export default function CategoriasPage() {
               {attributeFormError}
             </p>
           )}
+          {!editingAttributeId && (
+            <div className="flex gap-2" role="group" aria-label="Modo de atributo">
+              <Button
+                type="button"
+                variant={attributeMode === "existing" ? "default" : "outline"}
+                aria-pressed={attributeMode === "existing"}
+                disabled={!canAssignAttribute}
+                onClick={() => {
+                  setAttributeMode("existing");
+                  setAttributeFormError("");
+                }}
+              >
+                Existente
+              </Button>
+              <Button
+                type="button"
+                variant={attributeMode === "new" ? "default" : "outline"}
+                aria-pressed={attributeMode === "new"}
+                disabled={!canCreateAndAssignAttribute}
+                onClick={() => {
+                  setAttributeMode("new");
+                  setAttributeFormError("");
+                }}
+              >
+                Crear nuevo
+              </Button>
+            </div>
+          )}
+          {!editingAttributeId && attributeMode === "existing" ? (
+            <div className="space-y-3">
+              <FormField label="Buscar atributo existente">
+                <Input
+                  value={existingAttributeSearch}
+                  onChange={(event) => setExistingAttributeSearch(event.target.value)}
+                  placeholder="Nombre, código, tipo o unidad"
+                />
+              </FormField>
+              <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
+                {existingAttributeOptions.length ? (
+                  existingAttributeOptions.map((attribute) => {
+                    const effective = categoryAssignments.find(
+                      (assignment) => assignment.atributo_id === attribute.id,
+                    );
+                    const own = effective
+                      ? ownMappingIds.has(effective.mapping_id)
+                      : false;
+                    const selected = selectedExistingAttributeId === attribute.id;
+                    return (
+                      <button
+                        key={attribute.id}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={own}
+                        onClick={() => {
+                          setSelectedExistingAttributeId(attribute.id);
+                          setAttributeFormError("");
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted disabled:opacity-60 ${selected ? "bg-muted" : ""}`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block break-words text-sm font-medium">{attribute.nombre}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {attribute.tipo_dato}{attribute.unidad ? ` · ${attribute.unidad.simbolo} (${attribute.unidad.nombre})` : attribute.unidad_id ? " · unidad configurada" : ""} · {attribute.codigo ?? ""}
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {own
+                              ? "Ya asignado a esta categoría"
+                              : effective?.heredado
+                                ? `Heredado de ${effective.categoria_origen.nombre}; se puede asignar localmente`
+                                : "Disponible para asignar"}
+                          </span>
+                        </span>
+                        <Badge variant={effective?.heredado ? "secondary" : "outline"}>
+                          {own ? "Propio" : effective?.heredado ? "Heredado" : "Global"}
+                        </Badge>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="p-3 text-sm text-muted-foreground">
+                    No hay atributos que coincidan con la búsqueda.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+          <>
           <FormField label="Nombre" required>
             <Input
               value={attributeName}
@@ -1142,13 +2024,40 @@ export default function CategoriasPage() {
               Obligatorio en esta categoría
             </label>
           )}
-          {!editingAttributeId && attributeRequired && (
-            <FormField label="Valor por defecto">
+          {!editingAttributeId && (
+            <FormField label="Valor por defecto (opcional)">
               <Input
+                type={
+                  ["integer", "decimal"].includes(attributeType)
+                    ? "number"
+                    : "text"
+                }
+                step={attributeType === "decimal" ? "any" : undefined}
                 value={attributeDefault}
-                onChange={(event) => setAttributeDefault(event.target.value)}
+                onChange={(event) => {
+                  setAttributeDefault(event.target.value);
+                  if (!event.target.value.trim())
+                    setAttributeApplyDefaultToExisting(false);
+                }}
               />
             </FormField>
+          )}
+          {!editingAttributeId && attributeDefault.trim() && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                className="mt-1"
+                type="checkbox"
+                checked={attributeApplyDefaultToExisting}
+                onChange={(event) =>
+                  setAttributeApplyDefaultToExisting(event.target.checked)
+                }
+              />
+              <span>
+                Aplicar el default a productos existentes sin valor
+              </span>
+            </label>
+          )}
+          </>
           )}
         </div>
       </DetailModal>
@@ -1198,13 +2107,114 @@ export default function CategoriasPage() {
             });
         }}
       />
+      <ConfirmDialog
+        open={Boolean(createAttributeConfirmation)}
+        onClose={() => setCreateAttributeConfirmation(null)}
+        title="Confirmar creación y asignación"
+        description={
+          createAttributeConfirmation?.preview.resumen ??
+          "No hay una previsualización vigente. Vuelve al formulario y calcula el impacto."
+        }
+        details={
+          createAttributeConfirmation && (
+            <>
+              {createAttributeConfirmation.preview.faltantes.length > 0 && (
+                <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5">
+                  {createAttributeConfirmation.preview.faltantes
+                    .slice(0, 8)
+                    .map((item) => (
+                      <li key={item.id}>
+                        <span className="font-medium">{item.nombre}</span>: {item.motivo}
+                      </li>
+                    ))}
+                </ul>
+              )}
+              {createAttributeConfirmation.draft.aplicar_default_a_existentes ? (
+                <p>
+                  El default se aplicará solo donde falte un valor; no se modifican
+                  valores existentes.
+                </p>
+              ) : createAttributeConfirmation.preview.faltantes.length > 0 ? (
+                <p className="text-destructive">
+                  Completa los productos listados o activa el backfill explícito en el
+                  formulario.
+                </p>
+              ) : null}
+            </>
+          )
+        }
+        confirmLabel={
+          createAttributeConfirmation?.draft.aplicar_default_a_existentes
+            ? "Crear y aplicar a faltantes"
+            : "Crear y asignar"
+        }
+        confirmDisabled={
+          createAttribute.isPending ||
+          !createAttributeConfirmation ||
+          (Boolean(createAttributeConfirmation?.preview.faltantes.length) &&
+            !createAttributeConfirmation?.draft.aplicar_default_a_existentes)
+        }
+        onConfirm={async () => {
+          if (!createAttributeConfirmation) return;
+          await createAttribute.mutateAsync({
+            draft: createAttributeConfirmation.draft,
+            precondition:
+              createAttributeConfirmation.preview.precondicion_preview,
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(localRemovalConfirmation)}
+        onClose={() => setLocalRemovalConfirmation(null)}
+        title={`Quitar ${localRemovalConfirmation?.attributeName ?? "atributo"} de esta categoría`}
+        description={localRemovalConfirmation?.preview.resumen}
+        details={
+          localRemovalConfirmation && (
+            <>
+              {localRemovalConfirmation.preview.faltantes.length > 0 && (
+                <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5">
+                  {localRemovalConfirmation.preview.faltantes.slice(0, 8).map((item) => (
+                    <li key={item.id}>
+                      <span className="font-medium">{item.nombre}</span>: {item.motivo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(localRemovalConfirmation.preview.remapeos?.length ?? 0) > 0 && (
+                <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5">
+                  {localRemovalConfirmation.preview.remapeos?.map((item) => (
+                    <li key={item.id}>
+                      <span className="font-medium">{item.nombre}</span>: {item.motivo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p>
+                Una asignación ancestral, si aplica, y los valores que sigan vigentes se
+                conservarán. La baja global es una acción separada.
+              </p>
+            </>
+          )
+        }
+        confirmLabel="Quitar de esta categoría"
+        confirmDisabled={
+          removeLocalAssignment.isPending ||
+          !localRemovalConfirmation ||
+          Boolean(localRemovalConfirmation?.preview.faltantes.length) ||
+          Boolean(localRemovalConfirmation?.preview.remapeos?.length)
+        }
+        onConfirm={async () => {
+          if (localRemovalConfirmation)
+            await removeLocalAssignment.mutateAsync(localRemovalConfirmation);
+        }}
+      />
       <DetailModal
         open={Boolean(assignmentToConfigure)}
         onClose={() => {
           setAssignmentToConfigure(null);
           setAssignmentFormError("");
         }}
-        title={`Configurar atributo ${attributes.data?.find((attribute) => attribute.id === assignmentToConfigure?.atributo_id)?.nombre ?? ""} en categoría ${data.find((category) => category.id === assignmentToConfigure?.categoria_origen_id)?.nombre ?? ""}`}
+        title={`Configurar atributo ${attributes.data?.find((attribute) => attribute.id === assignmentToConfigure?.atributo_id)?.nombre ?? ""} en categoría ${selectedCategory?.nombre ?? ""}`}
         footer={
           <div className="flex gap-2">
             <Button
@@ -1235,11 +2245,11 @@ export default function CategoriasPage() {
           )}
           {assignmentToConfigure?.profundidad ? (
             <p className="text-sm text-muted-foreground">
-              Esta asignación se hereda de{" "}
+              Atributo heredado de{" "}
               {data.find(
                 (item) => item.id === assignmentToConfigure.categoria_origen_id,
               )?.nombre ?? "una categoría superior"}
-              ; los cambios aplicarán a esa categoría y sus descendientes.
+              . Al guardar, la configuración se aplicará solo a esta categoría.
             </p>
           ) : null}
           <label className="flex items-center gap-2 text-sm">
@@ -1250,31 +2260,43 @@ export default function CategoriasPage() {
             />
             Obligatorio en esta categoría
           </label>
-          {assignmentRequired && (
+          <FormField label="Orden (opcional)">
+            <Input
+              type="number"
+              min={0}
+              step={1}
+              value={assignmentOrder}
+              onChange={(event) => setAssignmentOrder(event.target.value)}
+            />
+          </FormField>
+          <FormField label="Valor por defecto (opcional)">
+            <Input
+              type={
+                attributes.data?.find(
+                  (item) => item.id === assignmentToConfigure?.atributo_id,
+                )?.tipo_dato === "integer" ||
+                attributes.data?.find(
+                  (item) => item.id === assignmentToConfigure?.atributo_id,
+                )?.tipo_dato === "decimal"
+                  ? "number"
+                  : "text"
+              }
+              step={
+                attributes.data?.find(
+                  (item) => item.id === assignmentToConfigure?.atributo_id,
+                )?.tipo_dato === "decimal"
+                  ? "any"
+                  : undefined
+              }
+              value={assignmentDefault}
+              onChange={(event) => {
+                setAssignmentDefault(event.target.value);
+                if (!event.target.value.trim()) setApplyDefaultToExisting(false);
+              }}
+            />
+          </FormField>
+          {assignmentDefault.trim() && (
             <>
-              <FormField label="Valor por defecto" required>
-                <Input
-                  type={
-                    attributes.data?.find(
-                      (item) => item.id === assignmentToConfigure?.atributo_id,
-                    )?.tipo_dato === "integer" ||
-                    attributes.data?.find(
-                      (item) => item.id === assignmentToConfigure?.atributo_id,
-                    )?.tipo_dato === "decimal"
-                      ? "number"
-                      : "text"
-                  }
-                  step={
-                    attributes.data?.find(
-                      (item) => item.id === assignmentToConfigure?.atributo_id,
-                    )?.tipo_dato === "decimal"
-                      ? "any"
-                      : undefined
-                  }
-                  value={assignmentDefault}
-                  onChange={(event) => setAssignmentDefault(event.target.value)}
-                />
-              </FormField>
               <label className="flex items-start gap-2 text-sm">
                 <input
                   className="mt-1"
@@ -1299,24 +2321,164 @@ export default function CategoriasPage() {
       </DetailModal>
       <ConfirmDialog
         open={backfillConfirmOpen}
-        onClose={() => setBackfillConfirmOpen(false)}
-        title="Completar valores faltantes"
-        description={`Se asignará “${assignmentDefault.trim()}” únicamente a los productos existentes sin valor para este atributo${assignmentToConfigure?.profundidad ? ` en ${data.find((item) => item.id === assignmentToConfigure.categoria_origen_id)?.nombre ?? "la categoría de origen"} y sus descendientes` : ` de ${data.find((item) => item.id === assignmentToConfigure?.categoria_id)?.nombre ?? "esta categoría"}`}. Los valores actuales no se modificarán.`}
-        confirmLabel="Aplicar a faltantes"
-        confirmDisabled={updateAssignment.isPending}
-        onConfirm={async () => saveAssignmentConfiguration()}
+        onClose={() => {
+          setBackfillConfirmOpen(false);
+          setAssignmentPreview(null);
+        }}
+        title="Confirmar configuración de atributo"
+        description={
+          assignmentPreview?.preview.resumen ??
+          "No hay una previsualización vigente. Vuelve al formulario y calcula el impacto."
+        }
+        details={
+          assignmentPreview && (
+            <>
+              {assignmentPreview.preview.faltantes.length > 0 && (
+                <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5">
+                  {assignmentPreview.preview.faltantes.slice(0, 8).map((item) => (
+                    <li key={item.id}>
+                      <span className="font-medium">{item.nombre}</span>: {item.motivo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {assignmentPreview.draft.aplicar_default_a_existentes ? (
+                <p>
+                  El default explícito se aplicará solo donde falte un valor; los valores
+                  existentes se conservarán.
+                </p>
+              ) : assignmentPreview.preview.faltantes.length > 0 ? (
+                <p className="text-destructive">
+                  Activa el backfill explícito en el formulario o completa los productos
+                  listados antes de confirmar.
+                </p>
+              ) : null}
+            </>
+          )
+        }
+        confirmLabel={
+          assignmentPreview?.draft.aplicar_default_a_existentes
+            ? "Aplicar a faltantes"
+            : "Confirmar configuración"
+        }
+        confirmDisabled={
+          previewAssignment.isPending ||
+          updateAssignment.isPending ||
+          !assignmentPreview ||
+          (Boolean(assignmentPreview?.preview.faltantes.length) &&
+            !assignmentPreview?.draft.aplicar_default_a_existentes)
+        }
+        onConfirm={async () => {
+          if (!assignmentPreview) return;
+          await saveAssignmentConfiguration(
+            assignmentPreview.draft,
+            assignmentPreview.preview.precondicion_preview,
+          );
+        }}
       />
       <ConfirmDialog
         open={Boolean(attributeToDeactivate)}
         onClose={() => setAttributeToDeactivate(null)}
         title={`Dar de baja ${attributeToDeactivate?.nombre ?? "atributo"}`}
         description="La baja es global: desactivará este atributo, sus asignaciones en todas las categorías y sus valores EAV activos. Los datos se conservarán y la acción podrá revertirse si no hay cambios posteriores."
-        confirmLabel="Dar de baja atributo"
-        variant="danger"
-        confirmDisabled={deactivateAttribute.isPending}
+        confirmLabel="Previsualizar baja"
+        confirmDisabled={previewGlobalDeactivation.isPending}
         onConfirm={async () => {
           if (attributeToDeactivate)
-            await deactivateAttribute.mutateAsync(attributeToDeactivate.id);
+            await previewGlobalDeactivation.mutateAsync(attributeToDeactivate);
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(globalAttributeConfirmation)}
+        onClose={() => setGlobalAttributeConfirmation(null)}
+        title={`Confirmar baja global de ${globalAttributeConfirmation?.nombre ?? "atributo"}`}
+        description={globalAttributeConfirmation?.preview.resumen}
+        details={
+          globalAttributeConfirmation && (
+            <>
+              <p>
+                {globalAttributeConfirmation.preview.conteos.asignaciones_activas ?? 0} asignaciones y{" "}
+                {globalAttributeConfirmation.preview.conteos.valores_activos ?? 0} valores EAV quedarán inactivos.
+              </p>
+              {(globalAttributeConfirmation.preview.remapeos?.length ?? 0) > 0 && (
+                <ul className="max-h-40 list-disc space-y-1 overflow-y-auto pl-5">
+                  {globalAttributeConfirmation.preview.remapeos?.map((item) => (
+                    <li key={item.id}>
+                      <span className="font-medium">{item.nombre}</span>: {item.motivo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(globalAttributeConfirmation.preview.remapeos?.length ?? 0) > 0 && (
+                <p className="text-destructive">
+                  Resuelve los remapeos pendientes antes de dar de baja el atributo.
+                </p>
+              )}
+            </>
+          )
+        }
+        confirmLabel="Dar de baja global"
+        variant="danger"
+        confirmDisabled={
+          deactivateAttribute.isPending ||
+          !globalAttributeConfirmation ||
+          Boolean(globalAttributeConfirmation?.preview.remapeos?.length)
+        }
+        onConfirm={async () => {
+          if (!globalAttributeConfirmation) return;
+          await deactivateAttribute.mutateAsync({
+            id: globalAttributeConfirmation.id,
+            precondition:
+              globalAttributeConfirmation.preview.precondicion_preview,
+          });
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(lifecycleTarget)}
+        onClose={() => setLifecycleTarget(null)}
+        title={`Ciclo de vida de ${lifecycleTarget?.nombre ?? "atributo"}`}
+        description={
+          attributeLifecycle.isLoading
+            ? "Consultando disponibilidad de restauración..."
+            : attributeLifecycle.data?.operacion
+              ? `Última operación: ${attributeLifecycle.data.operacion}. ${attributeLifecycle.data.creado_en ? new Date(attributeLifecycle.data.creado_en).toLocaleString("es-EC") : ""}`
+              : attributeLifecycle.data?.motivo ?? "No hay información de restauración."
+        }
+        details={
+          attributeLifecycle.data && (
+            <div className="space-y-2">
+              <p>
+                {attributeLifecycle.data.valores_afectados} valores y{" "}
+                {attributeLifecycle.data.categorias_afectadas} asignaciones en el snapshot.
+              </p>
+              {attributeLifecycle.data.motivo && (
+                <p className="text-destructive">{attributeLifecycle.data.motivo}</p>
+              )}
+            </div>
+          )
+        }
+        confirmLabel={
+          attributeLifecycle.data?.can_reactivate
+            ? "Reactivar atributo"
+            : "Revertir último cambio"
+        }
+        confirmDisabled={
+          attributeLifecycle.isLoading ||
+          attributeLifecycle.isError ||
+          !attributeLifecycle.data ||
+          (attributeLifecycle.data.can_reactivate
+            ? !canReactivateGlobalAttribute
+            : !attributeLifecycle.data.can_undo || !canUndoGlobalAttribute) ||
+          undoAttributeLifecycle.isPending ||
+          reactivateAttributeLifecycle.isPending
+        }
+        onConfirm={async () => {
+          if (!lifecycleTarget || !attributeLifecycle.data) return;
+          if (attributeLifecycle.data.can_reactivate) {
+            await reactivateAttributeLifecycle.mutateAsync(lifecycleTarget.id);
+          } else if (attributeLifecycle.data.can_undo) {
+            await undoAttributeLifecycle.mutateAsync(lifecycleTarget.id);
+          }
         }}
       />
       <ConfirmDialog
@@ -1346,10 +2508,31 @@ export default function CategoriasPage() {
             update.mutate({
               id: editing.id,
               nombre,
-              parent_id: parentId || undefined,
-              es_padre: !parentId,
+              parent_id: parentId || null,
             });
           setMoveConfirmOpen(false);
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(b3ConfirmationTarget)}
+        onClose={() => setB3ConfirmationTarget(null)}
+        title="Reclasificar productos directos"
+        description={
+          b3ConfirmationTarget && (
+            <span className="block space-y-2">
+              <span className="block">{b3ConfirmationTarget.preview.resumen}</span>
+              <span className="block">
+                {b3ConfirmationTarget.preview.conteos.productos_directos ?? 0} productos pasarán a
+                “Sin clasificar” bajo la categoría padre. No se modificarán cantidades ni
+                documentos históricos.
+              </span>
+            </span>
+          )
+        }
+        confirmLabel="Confirmar reclasificación"
+        confirmDisabled={confirmB3.isPending}
+        onConfirm={() => {
+          if (b3ConfirmationTarget) confirmB3.mutate(b3ConfirmationTarget);
         }}
       />
       <ConfirmDialog

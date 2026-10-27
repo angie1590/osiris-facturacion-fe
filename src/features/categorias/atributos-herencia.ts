@@ -11,6 +11,7 @@ export interface CategoriaAtributo {
 export interface AtributoAplicable extends CategoriaAtributo {
   categoria_origen_id: string;
   profundidad: number;
+  orden?: number | null;
 }
 
 export function getAtributosAplicables(
