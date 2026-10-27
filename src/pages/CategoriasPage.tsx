@@ -86,6 +86,22 @@ interface AtributoPreview {
   convertibles: number;
   incompatibles: { producto_id: string; valor: unknown; motivo: string }[];
   remapeos_pendientes: number;
+  requiere_confirmacion?: boolean;
+  resumen_anotacion_unidad?: string | null;
+  precondicion_preview?: string;
+  unidad_anotacion?: {
+    unidad: { id: string; nombre: string; simbolo: string };
+    conteos: {
+      valores_activos: number;
+      valores_inactivos: number;
+      valores_historicos: number;
+      defaults_actuales: number;
+      defaults_historicos: number;
+      productos_afectados: number;
+    };
+    requiere_confirmacion: boolean;
+    precondicion_preview?: string;
+  } | null;
 }
 
 interface AtributoDefinition {
@@ -97,6 +113,11 @@ interface AtributoDefinition {
   allow_negative?: boolean;
   min_value?: number;
   max_value?: number;
+}
+
+interface AtributoPreviewDraft {
+  id: string;
+  definition: AtributoDefinition;
 }
 
 interface AssignmentUpdate {
@@ -644,6 +665,7 @@ export default function CategoriasPage() {
         queryKey: ["categoria-atributos"],
       });
       await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
+      await queryClient.invalidateQueries({ queryKey: ["unidades", actor] });
       setAttributeToDeactivate(null);
       setGlobalAttributeConfirmation(null);
       toast({ variant: "success", title: "Atributo dado de baja" });
@@ -917,6 +939,8 @@ export default function CategoriasPage() {
   );
   const [attributePreview, setAttributePreview] =
     useState<AtributoPreview | null>(null);
+  const [attributePreviewDraft, setAttributePreviewDraft] =
+    useState<AtributoPreviewDraft | null>(null);
   const [attributeFormError, setAttributeFormError] = useState("");
   const [attributeName, setAttributeName] = useState("");
   const [attributeType, setAttributeType] = useState("string");
@@ -951,6 +975,10 @@ export default function CategoriasPage() {
       canReadUnits &&
       ["integer", "decimal"].includes(attributeType),
   });
+  const selectedAttributeUnit =
+    attributeUnits.data?.items.find((unit) => unit.id === attributeUnitId) ??
+    attributes.data?.find((item) => item.id === editingAttributeId)?.unidad ??
+    null;
   const buildAttributeDefinition = (): AtributoDefinition => {
     const options = attributeOptions
       .split(",")
@@ -975,6 +1003,9 @@ export default function CategoriasPage() {
     data.map((category) => [category.id, category.atributos_efectivos_count]),
   );
   const categoryAssignments = effectiveAttributes.data ?? [];
+  const configuredAttribute = categoryAssignments.find(
+    (assignment) => assignment.atributo_id === assignmentToConfigure?.atributo_id,
+  );
   const ownMappingIds = new Set(
     ownAttributes.data?.map((assignment) => assignment.mapping_id) ?? [],
   );
@@ -1128,8 +1159,17 @@ export default function CategoriasPage() {
           definition,
         )
       ).data,
-    onSuccess: (preview) => {
+    onSuccess: (preview, draft) => {
       setAttributePreview(preview);
+      setAttributePreviewDraft({
+        id: draft.id,
+        definition: {
+          ...draft.definition,
+          select_options: draft.definition.select_options
+            ? [...draft.definition.select_options]
+            : undefined,
+        },
+      });
       setAttributeFormError("");
     },
     onError: (error) => {
@@ -1158,14 +1198,22 @@ export default function CategoriasPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
       setAttributePreview(null);
+      setAttributePreviewDraft(null);
       setNewAttributeOpen(false);
       setEditingAttributeId(null);
       setAttributeFormError("");
       toast({ variant: "success", title: "Atributo actualizado" });
     },
     onError: (error) => {
-      const { message } = parseApiError(error);
+      const { code, message } = parseApiError(error);
       setAttributeFormError(message ?? "No se pudo guardar la edición.");
+      if (code === "CATALOG_PREVIEW_STALE") {
+        setAttributePreview(null);
+        setAttributePreviewDraft(null);
+        void queryClient.invalidateQueries({
+          queryKey: ["atributos-canonicos", actor],
+        });
+      }
     },
   });
   const openEditAttribute = (attributeId: string) => {
@@ -1534,10 +1582,10 @@ export default function CategoriasPage() {
                             {assignment.obligatorio ? "Obligatorio" : "Opcional"}
                           </Badge>
                         </div>
-                        <span className="hidden max-w-32 truncate text-xs text-muted-foreground sm:block">
+                        <span className="col-span-2 text-xs text-muted-foreground sm:col-span-1 sm:max-w-32 sm:truncate">
                           {assignment.valor_default == null || assignment.valor_default === ""
                             ? "Sin valor por defecto"
-                            : String(assignment.valor_default)}
+                            : `${String(assignment.valor_default)}${assignment.unidad ? ` ${assignment.unidad.simbolo}` : ""}`}
                         </span>
                         <div
                           className="relative justify-self-end"
@@ -1803,6 +1851,7 @@ export default function CategoriasPage() {
             ? "Editar atributo"
             : `${attributeMode === "existing" ? "Agregar atributo" : "Crear atributo"} · ${selectedCategory?.nombre ?? "Categoría"}`
         }
+        subtitle="La unidad se guarda por separado de los valores del atributo."
         footer={
           <div className="flex gap-2">
             <Button
@@ -2016,6 +2065,13 @@ export default function CategoriasPage() {
               </select>
             </FormField>
           )}
+          {editingAttributeId &&
+            attributeUsesUnit &&
+            !["integer", "decimal"].includes(attributeType) && (
+              <p role="status" className="text-sm text-amber-800">
+                La unidad {selectedAttributeUnit?.simbolo ?? "actual"} no se quitará al cambiar el tipo. Vuelve a un tipo numérico y desmarca “Usa unidad” para solicitar su retiro explícito.
+              </p>
+            )}
           {["integer", "decimal"].includes(attributeType) && (
             <>
               {canReadUnits && (
@@ -2103,7 +2159,9 @@ export default function CategoriasPage() {
             </label>
           )}
           {!editingAttributeId && (
-            <FormField label="Valor por defecto (opcional)">
+            <FormField
+              label={`Valor por defecto (opcional${attributeUsesUnit && selectedAttributeUnit ? ` · ${selectedAttributeUnit.simbolo}` : ""})`}
+            >
               <Input
                 type={
                   ["integer", "decimal"].includes(attributeType)
@@ -2141,10 +2199,23 @@ export default function CategoriasPage() {
       </DetailModal>
       <ConfirmDialog
         open={Boolean(attributePreview)}
-        onClose={() => setAttributePreview(null)}
+        onClose={() => {
+          setAttributePreview(null);
+          setAttributePreviewDraft(null);
+        }}
         title="Previsualización del cambio"
         description={
-          attributePreview && (
+          attributePreview?.unidad_anotacion ? (
+            <>
+              <p>{attributePreview.resumen_anotacion_unidad}</p>
+              <p>
+                {attributePreview.unidad_anotacion.conteos.valores_activos} valores activos, {attributePreview.unidad_anotacion.conteos.valores_inactivos} inactivos y {attributePreview.unidad_anotacion.conteos.valores_historicos} históricos en {attributePreview.unidad_anotacion.conteos.productos_afectados} productos.
+              </p>
+              <p>
+                {attributePreview.unidad_anotacion.conteos.defaults_actuales} defaults actuales y {attributePreview.unidad_anotacion.conteos.defaults_historicos} históricos. No se convierte ningún número ni se modifica ningún default.
+              </p>
+            </>
+          ) : attributePreview && (
             <div className="space-y-2">
               <p>
                 {attributePreview.asignaciones_activas} asignaciones activas en{" "}
@@ -2172,17 +2243,33 @@ export default function CategoriasPage() {
             </div>
           )
         }
-        confirmLabel="Aplicar cambios"
+        confirmLabel={
+          attributePreview?.unidad_anotacion
+            ? "Confirmar anotación"
+            : "Aplicar cambios"
+        }
         confirmDisabled={
           Boolean(attributePreview?.remapeos_pendientes) ||
-          editAttribute.isPending
+          editAttribute.isPending ||
+          !attributePreviewDraft
         }
         onConfirm={async () => {
-          if (editingAttributeId)
-            await editAttribute.mutateAsync({
-              id: editingAttributeId,
-              definition: buildAttributeDefinition(),
-            });
+          if (!attributePreviewDraft) return;
+          const annotation = attributePreview?.unidad_anotacion;
+          await editAttribute.mutateAsync({
+            id: attributePreviewDraft.id,
+            definition: {
+              ...attributePreviewDraft.definition,
+              ...(annotation
+                ? {
+                    confirmar_anotacion_unidad: true,
+                    precondicion_preview:
+                      annotation.precondicion_preview ??
+                      attributePreview?.precondicion_preview,
+                  }
+                : {}),
+            },
+          });
         }}
       />
       <ConfirmDialog
@@ -2347,7 +2434,9 @@ export default function CategoriasPage() {
               onChange={(event) => setAssignmentOrder(event.target.value)}
             />
           </FormField>
-          <FormField label="Valor por defecto (opcional)">
+          <FormField
+            label={`Valor por defecto (opcional${configuredAttribute?.unidad ? ` · ${configuredAttribute.unidad.simbolo}` : ""})`}
+          >
             <Input
               type={
                 attributes.data?.find(

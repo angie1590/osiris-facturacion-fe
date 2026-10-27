@@ -90,7 +90,10 @@ const attributeInputFields = {
 export const attributeCreateSchema = z.strictObject({
   ...attributeInputFields, ...configurationInputSchema.shape, categoria_id: id,
 }).refine(numericUnit, "ATTRIBUTE_UNIT_INVALID_TYPE");
-export const attributeUpdateSchema = z.strictObject(attributeInputFields).partial()
+export const attributeUpdateSchema = z.strictObject({
+  ...attributeInputFields,
+  precondicion_preview: text.nullable().optional(),
+}).partial()
   .refine(numericUnit, "ATTRIBUTE_UNIT_INVALID_TYPE");
 
 const impactItemSchema = z.strictObject({ id, nombre: text, motivo: text });

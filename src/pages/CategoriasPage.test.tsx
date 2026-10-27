@@ -32,6 +32,9 @@ const unitReadPermission = {
   puede_eliminar: false,
 };
 let includeUnitReadPermission = false;
+let parentAttributeUnit: CategoriaAtributoEfectivo["unidad"] = null;
+let parentAttributeDefault: string | null = null;
+let parentAttributeHasUnit = true;
 
 const child = {
   id: "child",
@@ -101,8 +104,8 @@ function effectiveAttributesFor(
         atributo_id: assignment.atributo_id,
         codigo: assignment.atributo_id.replace("attribute-", ""),
         nombre: isChildAssignment ? childName : "Atributo del padre",
-        tipo_dato: "string",
-        unidad: null,
+        tipo_dato: !isChildAssignment && parentAttributeUnit ? "decimal" : "string",
+        unidad: isChildAssignment ? null : parentAttributeUnit,
         restricciones: {
           allow_negative: false,
           min_value: null,
@@ -111,7 +114,9 @@ function effectiveAttributesFor(
         select_options: null,
         catalog_id: null,
         obligatorio: isChildAssignment ? childRequired : assignment.obligatorio ?? false,
-        valor_default: isChildAssignment ? childDefault : assignment.valor_default,
+        valor_default: isChildAssignment
+          ? childDefault
+          : parentAttributeDefault ?? assignment.valor_default,
         orden: null,
         categoria_origen: {
           id: assignment.categoria_id,
@@ -181,6 +186,9 @@ describe("CategoriasPage", () => {
     childRequired = false;
     childDefault = null;
     includeUnitReadPermission = false;
+    parentAttributeUnit = null;
+    parentAttributeDefault = null;
+    parentAttributeHasUnit = true;
     vi.mocked(api.get).mockImplementation(async (url) => {
       if (url === "/usuarios/actor/permisos")
         return {
@@ -209,14 +217,16 @@ describe("CategoriasPage", () => {
                 id: "attribute-parent",
                 nombre: "Atributo del padre",
                 tipo_dato: "decimal",
-                unidad_id: "unit-cm",
-                unidad: {
-                  id: "unit-cm",
-                  codigo: "centimetro",
-                  nombre: "Centímetro",
-                  simbolo: "cm",
-                  magnitud_codigo: "longitud",
-                },
+                unidad_id: parentAttributeHasUnit ? "unit-cm" : null,
+                unidad: parentAttributeHasUnit
+                  ? {
+                      id: "unit-cm",
+                      codigo: "CENTIMETRO",
+                      nombre: "Centímetro",
+                      simbolo: "cm",
+                      magnitud_codigo: "LENGTH",
+                    }
+                  : null,
               },
               {
                 id: "attribute-child",
@@ -849,6 +859,7 @@ describe("CategoriasPage", () => {
     await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
 
     expect(await screen.findByText("integer · GB")).toBeInTheDocument();
+    expect(screen.getByText("16 GB")).toBeInTheDocument();
     expect(screen.getByTitle("Heredado de Categoría padre")).toHaveTextContent(
       "Heredado",
     );
@@ -1682,7 +1693,9 @@ describe("CategoriasPage", () => {
       "unit-gb",
     );
     await user.type(
-      screen.getByRole("spinbutton", { name: "Valor por defecto (opcional)" }),
+      screen.getByRole("spinbutton", {
+        name: "Valor por defecto (opcional · GB)",
+      }),
       "16",
     );
     await user.click(screen.getByRole("button", { name: "Crear y asignar" }));
@@ -1735,6 +1748,44 @@ describe("CategoriasPage", () => {
     expect(screen.getByRole("combobox", { name: "Unidad" })).toHaveValue("unit-cm");
   });
 
+  it("advierte al cambiar el tipo y no oculta la unidad histórica", async () => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Acciones de Atributo del padre" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar definición global" }),
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Tipo de dato" }),
+      "string",
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "La unidad cm no se quitará al cambiar el tipo",
+    );
+    expect(
+      screen.queryByRole("checkbox", { name: "Usa unidad" }),
+    ).not.toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
   it("envía unidad_id null al solicitar quitar la unidad de una definición", async () => {
     const user = userEvent.setup();
     includeUnitReadPermission = true;
@@ -1782,6 +1833,95 @@ describe("CategoriasPage", () => {
       ([url]) => url === "/atributos/attribute-parent/previsualizar",
     )?.[1] as Record<string, unknown>;
     expect(previewPayload).not.toHaveProperty("usa_unidad");
+  });
+
+  it("confirma la anotación solo después del preview y conserva el payload/token", async () => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    parentAttributeHasUnit = false;
+    const preview = {
+      valores_activos: 1,
+      asignaciones_activas: 1,
+      productos_afectados: 1,
+      convertibles: 0,
+      incompatibles: [],
+      remapeos_pendientes: 0,
+      requiere_confirmacion: true,
+      resumen_anotacion_unidad:
+        "Los valores y defaults se interpretarán en Gigabyte (GB) sin modificar sus números.",
+      precondicion_preview: "unit-annotation-token",
+      unidad_anotacion: {
+        unidad: { id: "unit-gb", nombre: "Gigabyte", simbolo: "GB" },
+        conteos: {
+          valores_activos: 1,
+          valores_inactivos: 0,
+          valores_historicos: 2,
+          defaults_actuales: 1,
+          defaults_historicos: 1,
+          productos_afectados: 1,
+        },
+        requiere_confirmacion: true,
+        precondicion_preview: "unit-annotation-token",
+      },
+    };
+    vi.mocked(api.post).mockResolvedValue({ data: preview } as never);
+    vi.mocked(api.put).mockResolvedValue({ data: {} } as never);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Acciones de Atributo del padre" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar definición global" }),
+    );
+    await user.click(await screen.findByRole("checkbox", { name: "Usa unidad" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Unidad" }),
+      "unit-gb",
+    );
+    await user.click(screen.getByRole("button", { name: "Previsualizar cambios" }));
+
+    expect(await screen.findByText(/1 valores activos, 0 inactivos y 2 históricos/)).toBeInTheDocument();
+    expect(screen.getByText(/No se convierte ningún número/)).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalled();
+    expect(api.post).toHaveBeenCalledWith(
+      "/atributos/attribute-parent/previsualizar",
+      expect.objectContaining({ unidad_id: "unit-gb" }),
+    );
+
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Cancelar" }),
+    );
+    expect(api.put).not.toHaveBeenCalled();
+    expect(screen.getByRole("checkbox", { name: "Usa unidad" })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Unidad" })).toHaveValue("unit-gb");
+    await user.click(screen.getByRole("button", { name: "Previsualizar cambios" }));
+    expect(await screen.findByText(/1 valores activos, 0 inactivos y 2 históricos/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Confirmar anotación" }));
+    await waitFor(() =>
+      expect(api.put).toHaveBeenCalledWith(
+        "/atributos/attribute-parent",
+        expect.objectContaining({
+          unidad_id: "unit-gb",
+          confirmar_anotacion_unidad: true,
+          precondicion_preview: "unit-annotation-token",
+        }),
+      ),
+    );
   });
 
   it("muestra PRODUCT_REQUIRED_ATTRIBUTES_MISSING y no confirma una conversión requerida incompatible", async () => {
@@ -1842,6 +1982,14 @@ describe("CategoriasPage", () => {
 
   it("guarda la configuración heredada como override local con el mismo atributo", async () => {
     const user = userEvent.setup();
+    parentAttributeUnit = {
+      id: "unit-gb",
+      codigo: "GIGABYTE",
+      nombre: "Gigabyte",
+      simbolo: "GB",
+      magnitud_codigo: "DATA_STORAGE",
+    };
+    parentAttributeDefault = "16";
     vi.mocked(api.post).mockImplementation(async (url) =>
       String(url).endsWith("/previsualizar")
         ? categoryAttributePreview()
@@ -1876,10 +2024,12 @@ describe("CategoriasPage", () => {
         name: "Obligatorio en esta categoría",
       }),
     );
-    await user.type(
-      within(dialog).getByRole("spinbutton", { name: "Valor por defecto (opcional)" }),
-      "16",
-    );
+    const defaultInput = within(dialog).getByRole("spinbutton", {
+      name: "Valor por defecto (opcional · GB)",
+    });
+    expect(defaultInput).toHaveValue(16);
+    await user.clear(defaultInput);
+    await user.type(defaultInput, "16");
     await user.click(
       within(dialog).getByRole("button", { name: "Guardar configuración" }),
     );
