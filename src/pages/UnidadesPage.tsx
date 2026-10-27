@@ -165,11 +165,51 @@ export default function UnidadesPage() {
       key: "estado",
       header: "Estado",
       cell: (unit) => (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-32 flex-wrap items-center gap-1.5">
           <Badge variant={unit.activo ? "secondary" : "outline"}>
             {unit.activo ? "Activa" : "Inactiva"}
           </Badge>
           {unit.es_sistema && <Badge variant="outline">Sistema protegido</Badge>}
+          {!unit.es_sistema && unit.activo && canUpdate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title={`Editar ${unit.nombre}`}
+              aria-label={`Editar ${unit.nombre}`}
+              onClick={() => openEdit(unit)}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          {!unit.es_sistema && unit.activo && canDeactivate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title={`Desactivar ${unit.nombre}`}
+              aria-label={`Desactivar ${unit.nombre}`}
+              onClick={() => setPendingDeactivation(unit)}
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+          )}
+          {!unit.es_sistema && !unit.activo && canReactivate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title={`Reactivar ${unit.nombre}`}
+              aria-label={`Reactivar ${unit.nombre}`}
+              isLoading={reactivateUnit.isPending}
+              onClick={() => reactivateUnit.mutate(unit.id)}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -188,55 +228,6 @@ export default function UnidadesPage() {
           <span className="text-sm">
             {atributos_activos} activos · {atributos_inactivos} inactivos · {snapshots_historicos} históricos
           </span>
-        );
-      },
-    },
-    {
-      key: "acciones",
-      header: "Acciones",
-      align: "right",
-      cell: (unit) => {
-        if (unit.es_sistema) return <span className="text-xs text-muted-foreground">Protegida</span>;
-        return (
-          <div className="flex justify-end gap-1">
-            {unit.activo && canUpdate && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                title={`Editar ${unit.nombre}`}
-                aria-label={`Editar ${unit.nombre}`}
-                onClick={() => openEdit(unit)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-            {unit.activo && canDeactivate && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                title={`Desactivar ${unit.nombre}`}
-                aria-label={`Desactivar ${unit.nombre}`}
-                onClick={() => setPendingDeactivation(unit)}
-              >
-                <Power className="h-4 w-4" />
-              </Button>
-            )}
-            {!unit.activo && canReactivate && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                title={`Reactivar ${unit.nombre}`}
-                aria-label={`Reactivar ${unit.nombre}`}
-                isLoading={reactivateUnit.isPending}
-                onClick={() => reactivateUnit.mutate(unit.id)}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
         );
       },
     },

@@ -2039,6 +2039,7 @@ describe("CategoriasPage", () => {
 
     expect(await screen.findByText(/1 valores activos, 0 inactivos y 2 históricos/)).toBeInTheDocument();
     expect(screen.getByText(/No se convierte ningún número/)).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
     expect(api.put).not.toHaveBeenCalled();
     expect(api.post).toHaveBeenCalledWith(
       "/atributos/attribute-parent/previsualizar",

@@ -1860,7 +1860,11 @@ export default function CategoriasPage() {
         </div>
       </DetailModal>
       <DetailModal
-        open={newAttributeOpen}
+        open={
+          newAttributeOpen &&
+          !attributePreview &&
+          !createAttributeConfirmation
+        }
         onClose={() => {
           setNewAttributeOpen(false);
           setEditingAttributeId(null);
