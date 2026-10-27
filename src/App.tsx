@@ -30,6 +30,7 @@ const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
 const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
 const CategoriasPage = lazy(() => import("@/pages/CategoriasPage"));
+const UnidadesPage = lazy(() => import("@/pages/UnidadesPage"));
 const BodegasPage = lazy(() => import("@/pages/BodegasPage"));
 const ConfiguracionOperativaPage = lazy(
   () => import("@/pages/ConfiguracionOperativaPage"),
@@ -176,6 +177,7 @@ export default function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/personas" element={<PersonasPage />} />
                 <Route path="/productos" element={<ProductosPage />} />
+                <Route path="/unidades" element={<UnidadesPage />} />
                 <Route path="/clientes" element={<CustomersPage />} />
                 <Route path="/proveedores" element={<SuppliersPage />} />
                 <Route path="/prohibido" element={<Forbidden />} />

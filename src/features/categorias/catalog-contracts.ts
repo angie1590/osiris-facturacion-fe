@@ -14,11 +14,19 @@ export const unitInputSchema = z.strictObject({
   codigo: code, nombre: text, simbolo: code, magnitud_codigo: code,
 });
 export const unitSummarySchema = unitInputSchema.extend({ id });
+export const unitUsageSchema = z.strictObject({
+  atributos_activos: count,
+  atributos_inactivos: count,
+  snapshots_historicos: count,
+});
 export const unitReadSchema = unitSummarySchema.extend({
   es_sistema: z.boolean(), activo: z.boolean(),
   creado_en: z.iso.datetime({ offset: true, local: true }),
   actualizado_en: z.iso.datetime({ offset: true, local: true }),
   usuario_auditoria: z.string().nullable(),
+  created_by: z.string().nullable().optional(),
+  updated_by: z.string().nullable().optional(),
+  uso: unitUsageSchema.optional(),
 });
 export const unitUpdateSchema = unitInputSchema.partial();
 

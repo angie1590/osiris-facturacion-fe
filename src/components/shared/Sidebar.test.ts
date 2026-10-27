@@ -16,6 +16,10 @@ describe("Sidebar NAV_ITEMS", () => {
     expect(canonical).toBeDefined();
   });
 
+  it("incluye el catálogo administrativo de unidades", () => {
+    expect(NAV_ITEMS.find((item) => item.to === "/unidades")?.label).toBe("Unidades");
+  });
+
   it("mantiene los aliases heredados fuera del sidebar", () => {
     const redirects = [
       ...INVENTORY_LEGACY_REDIRECTS,

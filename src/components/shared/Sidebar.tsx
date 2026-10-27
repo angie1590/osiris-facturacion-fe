@@ -27,6 +27,7 @@ import {
   FileText,
   CreditCard,
   FileCheck,
+  Ruler,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -106,6 +107,7 @@ const SECTION_LAYOUTS: Partial<Record<Section, SectionLayoutEntry[]>> = {
   catalogo: [
     { type: "item", to: "/productos" },
     { type: "item", to: "/categorias" },
+    { type: "item", to: "/unidades" },
     { type: "item", to: "/catalogos" },
     { type: "item", to: "/bodegas" },
     { type: "group", id: "catalogo-terceros" },
@@ -156,6 +158,13 @@ export const NAV_ITEMS: NavItem[] = [
     to: "/categorias",
     label: "Categorías",
     icon: Tags,
+    roles: ["admin", "supervisor"],
+    section: "catalogo",
+  },
+  {
+    to: "/unidades",
+    label: "Unidades",
+    icon: Ruler,
     roles: ["admin", "supervisor"],
     section: "catalogo",
   },

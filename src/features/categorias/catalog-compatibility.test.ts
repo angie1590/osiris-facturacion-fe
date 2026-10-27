@@ -89,10 +89,10 @@ describe("delivery 2: current DTO golden fixtures, not deployed target DTOs", ()
     )).toEqual([]);
   });
 
-  it("retains current unit audit and system flags without asserting a deployed unit read API", () => {
+  it("retains current unit fields while the target API remains explicitly not deployed", () => {
     expect(currentUnitRead).toMatchObject({ es_sistema: true, activo: true, created_by: null, updated_by: null });
     expect({ ...currentUnitRead, es_sistema: false, activo: false }).toMatchObject({ es_sistema: false, activo: false });
-    expect(unitReadSchema.safeParse(currentUnitRead).success).toBe(false);
+    expect(unitReadSchema.safeParse(currentUnitRead).success).toBe(true);
     expect(catalogContractStatus).toBe("target-not-deployed");
     expect(contract["x-contract-only"]).toBe(true);
     expect(contract["x-deployed"]).toBe(false);
