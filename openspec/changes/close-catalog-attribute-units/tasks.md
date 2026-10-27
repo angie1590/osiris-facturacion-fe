@@ -47,7 +47,7 @@ Coordinacion por entregas 1-6 con el cambio backend homonimo; verificar el gate 
 
 - [x] 6.1 Crear recorrido /unidades con shared/ui, listado/busqueda/magnitud/activos/historial, permisos efectivos y estados protegidos del seed; simbolos MB/Mb permanecen distintos.
 - [x] 6.2 Implementar alta/edicion/baja/reactivacion no sistema con mensajes UNIT_DUPLICATE_CODE/SYMBOL, UNIT_PROTECTED/IN_USE/INACTIVE; historia proviene de backend, no conteo local.
-- [ ] 6.3 Integrar usa unidad visual solo en integer/decimal; seleccionar nombre/simbolo activo y enviar unidad_id/null; edicion precarga estado, sin boolean persistido ni unidad comercial.
+- [x] 6.3 Integrar usa unidad visual solo en integer/decimal; seleccionar nombre/simbolo activo y enviar unidad_id/null; edicion precarga estado, sin boolean persistido ni unidad comercial.
 - [ ] 6.4 Mostrar sufijo en panel y default de categoria conservando payload numerico separado; cambios de tipo no quitan unidad historica silenciosamente.
 - [ ] 6.5 Implementar preview/confirmacion de primera anotacion con conteos, texto sin conversion y confirmar_anotacion_unidad=true; draft/payload/token exactos y cancelacion sin mutacion.
 - [ ] 6.6 Mostrar bloqueo A-B/A-null con datos historicos y permitir undo de anotacion solo mediante snapshot disponible, no PUT null; refrescar panel/unidades/ciclo/remapeos tras exito.

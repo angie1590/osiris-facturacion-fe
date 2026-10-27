@@ -74,6 +74,7 @@ export interface CategoryAttributeCreatePayload {
   categoria_id: string;
   nombre: string;
   tipo_dato: string;
+  unidad_id?: string | null;
   select_options?: string[];
   catalog_id?: string;
   allow_negative?: boolean;

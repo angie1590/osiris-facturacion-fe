@@ -23,6 +23,15 @@ const categoryPermissions = ["CATEGORIAS", "ATRIBUTOS"].map((codigo) => ({
   puede_actualizar: true,
   puede_eliminar: true,
 }));
+const unitReadPermission = {
+  codigo: "UNIDADES",
+  nombre: "UNIDADES",
+  puede_leer: true,
+  puede_crear: false,
+  puede_actualizar: false,
+  puede_eliminar: false,
+};
+let includeUnitReadPermission = false;
 
 const child = {
   id: "child",
@@ -171,9 +180,14 @@ describe("CategoriasPage", () => {
     childAttributeName = "Atributo de la subcategoría";
     childRequired = false;
     childDefault = null;
+    includeUnitReadPermission = false;
     vi.mocked(api.get).mockImplementation(async (url) => {
       if (url === "/usuarios/actor/permisos")
-        return { data: categoryPermissions } as never;
+        return {
+          data: includeUnitReadPermission
+            ? [...categoryPermissions, unitReadPermission]
+            : categoryPermissions,
+        } as never;
       if (url === "/categorias/arbol") {
         return {
           data: [childActive ? parent : { ...parent, tiene_hijos: false, es_padre: false, hijos: [] }],
@@ -214,6 +228,42 @@ describe("CategoriasPage", () => {
         } as never;
       }
       if (url === "/catalogos") return { data: [] } as never;
+      if (url === "/unidades")
+        return {
+          data: {
+            items: [
+              {
+                id: "unit-cm",
+                codigo: "CENTIMETRO",
+                nombre: "Centímetro",
+                simbolo: "cm",
+                magnitud_codigo: "LENGTH",
+                es_sistema: true,
+                activo: true,
+                uso: {
+                  atributos_activos: 1,
+                  atributos_inactivos: 0,
+                  snapshots_historicos: 0,
+                },
+              },
+              {
+                id: "unit-gb",
+                codigo: "GIGABYTE",
+                nombre: "Gigabyte",
+                simbolo: "GB",
+                magnitud_codigo: "DATA_STORAGE",
+                es_sistema: true,
+                activo: true,
+                uso: {
+                  atributos_activos: 0,
+                  atributos_inactivos: 0,
+                  snapshots_historicos: 0,
+                },
+              },
+            ],
+            meta: { total: 1, limit: 1000, offset: 0, page: 1, page_count: 1 },
+          },
+        } as never;
       throw new Error(`Solicitud inesperada: ${String(url)}`);
     });
     vi.mocked(api.delete).mockImplementation(async (url) => {
@@ -1593,6 +1643,145 @@ describe("CategoriasPage", () => {
         }),
       ),
     );
+  });
+
+  it("crea un atributo numérico con unidad separada del default", async () => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    vi.mocked(api.post).mockResolvedValue({ data: { id: "attribute-new" } } as never);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(screen.getByRole("button", { name: "Agregar atributo" }));
+    await user.click(screen.getByRole("button", { name: "Crear nuevo" }));
+    await user.type(screen.getByRole("textbox", { name: "Nombre" }), "Memoria RAM");
+    expect(
+      screen.queryByRole("checkbox", { name: "Usa unidad" }),
+    ).not.toBeInTheDocument();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Tipo de dato" }),
+      "integer",
+    );
+    const usesUnit = await screen.findByRole("checkbox", { name: "Usa unidad" });
+    expect(usesUnit).not.toBeChecked();
+    await user.click(usesUnit);
+    await user.selectOptions(
+      await screen.findByRole("combobox", { name: "Unidad" }),
+      "unit-gb",
+    );
+    await user.type(
+      screen.getByRole("spinbutton", { name: "Valor por defecto (opcional)" }),
+      "16",
+    );
+    await user.click(screen.getByRole("button", { name: "Crear y asignar" }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        "/atributos",
+        expect.objectContaining({
+          categoria_id: child.id,
+          nombre: "Memoria RAM",
+          tipo_dato: "integer",
+          unidad_id: "unit-gb",
+          valor_default: "16",
+        }),
+      ),
+    );
+    const createPayload = vi.mocked(api.post).mock.calls.find(
+      ([url]) => url === "/atributos",
+    )?.[1] as Record<string, unknown>;
+    expect(createPayload).not.toHaveProperty("usa_unidad");
+    expect(JSON.stringify(createPayload)).not.toContain("GB");
+  });
+
+  it("precarga la unidad del atributo al abrir su edición global", async () => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Acciones de Atributo del padre" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar definición global" }),
+    );
+
+    expect(await screen.findByRole("checkbox", { name: "Usa unidad" })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Unidad" })).toHaveValue("unit-cm");
+  });
+
+  it("envía unidad_id null al solicitar quitar la unidad de una definición", async () => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    vi.mocked(api.post).mockResolvedValue({
+      data: {
+        asignaciones_activas: 0,
+        valores_activos: 0,
+        productos_afectados: 0,
+        convertibles: 0,
+        incompatibles: [],
+        remapeos_pendientes: 0,
+      },
+    } as never);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Acciones de Atributo del padre" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar definición global" }),
+    );
+    await user.click(await screen.findByRole("checkbox", { name: "Usa unidad" }));
+    await user.click(screen.getByRole("button", { name: "Previsualizar cambios" }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith(
+        "/atributos/attribute-parent/previsualizar",
+        expect.objectContaining({ unidad_id: null }),
+      ),
+    );
+    const previewPayload = vi.mocked(api.post).mock.calls.find(
+      ([url]) => url === "/atributos/attribute-parent/previsualizar",
+    )?.[1] as Record<string, unknown>;
+    expect(previewPayload).not.toHaveProperty("usa_unidad");
   });
 
   it("muestra PRODUCT_REQUIRED_ATTRIBUTES_MISSING y no confirma una conversión requerida incompatible", async () => {

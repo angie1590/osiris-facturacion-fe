@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DetailModal } from "@/components/shared/DetailModal";
 import { FormField } from "@/components/shared/FormField";
@@ -27,6 +28,7 @@ import {
   type CatalogAccessContext,
 } from "@/features/categorias/catalog-access";
 import { useToast } from "@/hooks/use-toast";
+import { listarUnidades } from "@/features/unidades/api";
 import { parseApiError } from "@/lib/api-error";
 import {
   confirmCategoryCreate,
@@ -89,6 +91,7 @@ interface AtributoPreview {
 interface AtributoDefinition {
   nombre: string;
   tipo_dato: string;
+  unidad_id?: string | null;
   select_options?: string[];
   catalog_id?: string;
   allow_negative?: boolean;
@@ -279,6 +282,7 @@ export default function CategoriasPage() {
   const canEditGlobalAttribute = catalogAccess(accessContext, "update_attribute") === "permitido";
   const canDeactivateGlobalAttribute = catalogAccess(accessContext, "deactivate_attribute") === "permitido";
   const canReadGlobalAttributes = catalogAccess(accessContext, "read_attributes") === "permitido";
+  const canReadUnits = catalogAccess(accessContext, "read_units") === "permitido";
   const canReactivateGlobalAttribute = catalogAccess(accessContext, "reactivate_attribute") === "permitido";
   const canUndoGlobalAttribute = catalogAccess(accessContext, "undo_attribute_change") === "permitido";
   const canCreateCategory = catalogAccess(accessContext, "create_category") === "permitido";
@@ -916,6 +920,8 @@ export default function CategoriasPage() {
   const [attributeFormError, setAttributeFormError] = useState("");
   const [attributeName, setAttributeName] = useState("");
   const [attributeType, setAttributeType] = useState("string");
+  const [attributeUsesUnit, setAttributeUsesUnit] = useState(false);
+  const [attributeUnitId, setAttributeUnitId] = useState("");
   const [attributeOptions, setAttributeOptions] = useState("");
   const [attributeCatalogId, setAttributeCatalogId] = useState("");
   const [attributeRequired, setAttributeRequired] = useState(false);
@@ -936,6 +942,15 @@ export default function CategoriasPage() {
   const [allowNegative, setAllowNegative] = useState(false);
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
+  const attributeUnits = useQuery({
+    queryKey: ["unidades", actor, "active"],
+    queryFn: () =>
+      listarUnidades({ only_active: true, limit: 1000, offset: 0 }),
+    enabled:
+      newAttributeOpen &&
+      canReadUnits &&
+      ["integer", "decimal"].includes(attributeType),
+  });
   const buildAttributeDefinition = (): AtributoDefinition => {
     const options = attributeOptions
       .split(",")
@@ -944,6 +959,7 @@ export default function CategoriasPage() {
     return {
       nombre: attributeName.trim(),
       tipo_dato: attributeType,
+      unidad_id: attributeUsesUnit ? attributeUnitId || null : null,
       select_options: attributeType === "select" ? options : undefined,
       catalog_id:
         attributeType === "catalog"
@@ -1028,6 +1044,8 @@ export default function CategoriasPage() {
       queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       setNewAttributeOpen(false);
       setAttributeName("");
+      setAttributeUsesUnit(false);
+      setAttributeUnitId("");
       setAttributeOptions("");
       setAttributeCatalogId("");
       setAttributeRequired(false);
@@ -1156,6 +1174,8 @@ export default function CategoriasPage() {
     setEditingAttributeId(attribute.id);
     setAttributeName(attribute.nombre);
     setAttributeType(attribute.tipo_dato);
+    setAttributeUsesUnit(Boolean(attribute.unidad_id));
+    setAttributeUnitId(attribute.unidad_id ?? "");
     setAttributeOptions(attribute.select_options?.join(", ") ?? "");
     setAttributeCatalogId(attribute.catalog_id ?? "");
     setAllowNegative(attribute.allow_negative ?? false);
@@ -1813,14 +1833,22 @@ export default function CategoriasPage() {
                 editAttribute.isPending ||
                 (editingAttributeId
                   ? !attributeName.trim() ||
-                    (attributeType === "select" && !attributeOptions.trim())
+                    (attributeType === "select" && !attributeOptions.trim()) ||
+                    (attributeUsesUnit &&
+                      ["integer", "decimal"].includes(attributeType) &&
+                      canReadUnits &&
+                      !attributeUnitId)
                   : attributeMode === "existing"
                     ? !selectedExistingAttributeId ||
                       !canAssignAttribute ||
                       Boolean(selectedExistingMapping && ownMappingIds.has(selectedExistingMapping.mapping_id))
                     : !attributeName.trim() ||
                       !canCreateAndAssignAttribute ||
-                      (attributeType === "select" && !attributeOptions.trim()))
+                      (attributeType === "select" && !attributeOptions.trim()) ||
+                      (attributeUsesUnit &&
+                        ["integer", "decimal"].includes(attributeType) &&
+                        canReadUnits &&
+                        !attributeUnitId))
               }
             >
               {editingAttributeId
@@ -1867,6 +1895,8 @@ export default function CategoriasPage() {
                 disabled={!canCreateAndAssignAttribute}
                 onClick={() => {
                   setAttributeMode("new");
+                  setAttributeUsesUnit(false);
+                  setAttributeUnitId("");
                   setAttributeFormError("");
                 }}
               >
@@ -1988,6 +2018,54 @@ export default function CategoriasPage() {
           )}
           {["integer", "decimal"].includes(attributeType) && (
             <>
+              {canReadUnits && (
+                <>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={attributeUsesUnit}
+                      onCheckedChange={(checked) =>
+                        setAttributeUsesUnit(checked === true)
+                      }
+                      aria-label="Usa unidad"
+                    />
+                    Usa unidad
+                  </label>
+                  {attributeUsesUnit && (
+                    <FormField label="Unidad">
+                      <select
+                        className="h-10 w-full rounded-lg border border-input bg-white px-3 text-sm"
+                        value={attributeUnitId}
+                        onChange={(event) =>
+                          setAttributeUnitId(event.target.value)
+                        }
+                        disabled={attributeUnits.isLoading || attributeUnits.isError}
+                      >
+                        <option value="">Seleccionar unidad</option>
+                        {(attributeUnits.data?.items ?? [])
+                          .filter((unit) => unit.activo)
+                          .map((unit) => (
+                            <option key={unit.id} value={unit.id}>
+                              {unit.nombre} ({unit.simbolo})
+                            </option>
+                          ))}
+                      </select>
+                    </FormField>
+                  )}
+                  {attributeUsesUnit && attributeUnits.isError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      No se pudieron cargar las unidades activas.
+                    </p>
+                  )}
+                </>
+              )}
+              {attributeUsesUnit && !canReadUnits && editingAttributeId && (
+                <p className="text-sm text-muted-foreground">
+                  Unidad configurada: {attributes.data?.find((item) => item.id === editingAttributeId)?.unidad?.nombre ?? "unidad actual"}
+                  {attributes.data?.find((item) => item.id === editingAttributeId)?.unidad?.simbolo
+                    ? ` (${attributes.data.find((item) => item.id === editingAttributeId)?.unidad?.simbolo})`
+                    : ""}
+                </p>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
