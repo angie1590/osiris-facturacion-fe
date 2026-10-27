@@ -1632,6 +1632,36 @@ describe("CategoriasPage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("recorre el modal Agregar atributo con teclado y devuelve el foco al disparador", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    const trigger = screen.getByRole("button", { name: "Agregar atributo" });
+    trigger.focus();
+    await user.keyboard("{Enter}");
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Existente" })).toHaveFocus();
+    await user.keyboard("{Tab}");
+    expect(within(dialog).getByRole("button", { name: "Crear nuevo" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
   it("previsualiza y confirma el backfill al crear un atributo obligatorio nuevo", async () => {
     const user = userEvent.setup();
     vi.mocked(api.post).mockImplementation(async (url) =>

@@ -41,7 +41,7 @@ Coordinacion por entregas 1-6 con el cambio backend homonimo; verificar el gate 
 - [x] 5.6 Implementar quitar local con impacto resultante y confirmacion, separado de baja global; informar conservacion de valores aun aplicables y conflictos de remapeos.
 - [x] 5.7 Completar filtros activos/historial de atributos, reactivacion, resumen fecha/operacion y undo autorizado en Categorias; manejar legacy sin snapshot y 409 sin perder borrador.
 - [x] 5.8 Capturar draft inmutable de todas las confirmaciones, invalidarlo al editar y bloquear doble submit; ante errores/red/stale preservar borrador y refrescar disponibilidad.
-- [ ] 5.9 Cerrar gate 5 con BE: asignar/reusar/override/default-null/backfill/quitar-local/baja-global/undo, sin navegar fuera de categoria ni recalcular herencia.
+- [x] 5.9 Cerrar gate 5 con BE: asignar/reusar/override/default-null/backfill/quitar-local/baja-global/undo, sin navegar fuera de categoria ni recalcular herencia.
 
 ## 6. Entrega 6 - Unidades administrativas
 
@@ -51,16 +51,16 @@ Coordinacion por entregas 1-6 con el cambio backend homonimo; verificar el gate 
 - [x] 6.4 Mostrar sufijo en panel y default de categoria conservando payload numerico separado; cambios de tipo no quitan unidad historica silenciosamente.
 - [x] 6.5 Implementar preview/confirmacion de primera anotacion con conteos, texto sin conversion y confirmar_anotacion_unidad=true; draft/payload/token exactos y cancelacion sin mutacion.
 - [x] 6.6 Mostrar bloqueo A-B/A-null con datos historicos y permitir undo de anotacion solo mediante snapshot disponible, no PUT null; refrescar panel/unidades/ciclo/remapeos tras exito.
-- [ ] 6.7 Cerrar gate 6 con BE: administrar unidad, atributo numerico con/sin unidad, default, anotacion/409/undo; screenshots responsive y validacion de invariancia numerica sin cambiar formulario Producto.
+- [x] 6.7 Cerrar gate 6 con BE: administrar unidad, atributo numerico con/sin unidad, default, anotacion/409/undo; screenshots responsive y validacion de invariancia numerica sin cambiar formulario Producto.
 
 ## 7. Gates ejecutables del alcance actual
 
-- [ ] 7.1 Ejecutar tests de recorridos administrativos reales y fixtures de 403/409/422/red, previews stale, herencia/override, defaults opt-in y proteccion historica, incluyendo regresion de utilidades compartidas.
-- [ ] 7.2 Ejecutar `npm test`, `npm run lint` y `npm run build` completos con cero fallos; no contar tests retirados de paginas obsoletas como cobertura de la UI nueva.
-- [ ] 7.3 Ejecutar Playwright administrativo contra backend compatible con fixtures autorizados en entorno aislado; verificar teclado/foco, menus/modales/arbol y screenshots desktop/mobile sin solapes.
-- [ ] 7.4 Verificar tipos/respuestas contra OpenAPI, documentar rutas/errores y evidencias por gate junto a BE; mantener explicito que Producto atomico y E2E de Producto siguen pendientes.
-- [ ] 7.5 Retirar solo imports/rutas/paginas administrativas sin consumidores, conservando redirecciones aprobadas y sin tocar pagina Producto ni borrar cambios ajenos.
-- [ ] 7.6 Ejecutar `openspec validate close-catalog-attribute-units --strict --no-interactive` en ambos repositorios; conciliar pendientes previos por evidencia sin modificar checkboxes antiguos automaticamente.
+- [x] 7.1 Ejecutar tests de recorridos administrativos reales y fixtures de 403/409/422/red, previews stale, herencia/override, defaults opt-in y proteccion historica, incluyendo regresion de utilidades compartidas.
+- [x] 7.2 Ejecutar `npm test`, `npm run lint` y `npm run build` completos con cero fallos; no contar tests retirados de paginas obsoletas como cobertura de la UI nueva.
+- [x] 7.3 Ejecutar Playwright administrativo contra backend compatible con fixtures autorizados en entorno aislado; verificar teclado/foco, menus/modales/arbol y screenshots desktop/mobile sin solapes.
+- [x] 7.4 Verificar tipos/respuestas contra OpenAPI, documentar rutas/errores y evidencias por gate junto a BE; mantener explicito que Producto atomico y E2E de Producto siguen pendientes.
+- [x] 7.5 Retirar solo imports/rutas/paginas administrativas sin consumidores, conservando redirecciones aprobadas y sin tocar pagina Producto ni borrar cambios ajenos.
+- [x] 7.6 Ejecutar `openspec validate close-catalog-attribute-units --strict --no-interactive` en ambos repositorios; conciliar pendientes previos por evidencia sin modificar checkboxes antiguos automaticamente.
 
 ## Fuera de esta ejecucion - Entregas futuras 7 y 8
 
