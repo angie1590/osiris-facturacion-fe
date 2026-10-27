@@ -718,6 +718,7 @@ export default function CategoriasPage() {
       await queryClient.invalidateQueries({ queryKey: ["atributos-historial"] });
       await queryClient.invalidateQueries({ queryKey: ["categoria-atributos"] });
       await queryClient.invalidateQueries({ queryKey: ["attribute-remap"] });
+      await queryClient.invalidateQueries({ queryKey: ["unidades", actor] });
       setLifecycleTarget(null);
       toast({ variant: "success", title: "Último cambio revertido" });
     },
@@ -1174,6 +1175,28 @@ export default function CategoriasPage() {
     },
     onError: (error) => {
       const { code, message } = parseApiError(error);
+      const detail = (
+        error as {
+          response?: {
+            data?: {
+              detail?: {
+                conteos?: Record<string, number>;
+              };
+            };
+          };
+        }
+      )?.response?.data?.detail;
+      const counts = detail?.conteos;
+      if (
+        (code === "ATTRIBUTE_UNIT_CHANGE_REQUIRES_CONVERSION" ||
+          code === "ATTRIBUTE_UNIT_REMOVAL_REQUIRES_MIGRATION") &&
+        counts
+      ) {
+        setAttributeFormError(
+          `${message ?? "El cambio de unidad requiere migrar su historial."} Referencias: ${counts.valores_activos ?? 0} valores activos, ${counts.valores_inactivos ?? 0} inactivos, ${counts.valores_historicos ?? 0} históricos y ${counts.snapshots_historicos ?? 0} snapshots.`,
+        );
+        return;
+      }
       setAttributeFormError(
         code === "PRODUCT_REQUIRED_ATTRIBUTES_MISSING"
           ? `${code}: ${message ?? "La conversión dejaría productos obligatorios sin un valor válido."}`
@@ -2608,7 +2631,7 @@ export default function CategoriasPage() {
           attributeLifecycle.isLoading
             ? "Consultando disponibilidad de restauración..."
             : attributeLifecycle.data?.operacion
-              ? `Última operación: ${attributeLifecycle.data.operacion}. ${attributeLifecycle.data.creado_en ? new Date(attributeLifecycle.data.creado_en).toLocaleString("es-EC") : ""}`
+              ? `Última operación: ${attributeLifecycle.data.operacion === "annotate_unit" ? "Anotación de unidad" : attributeLifecycle.data.operacion}. ${attributeLifecycle.data.creado_en ? new Date(attributeLifecycle.data.creado_en).toLocaleString("es-EC") : ""}`
               : attributeLifecycle.data?.motivo ?? "No hay información de restauración."
         }
         details={

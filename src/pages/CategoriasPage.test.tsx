@@ -552,6 +552,72 @@ describe("CategoriasPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("ofrece undo de annotate_unit solo cuando el snapshot está disponible", async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+    vi.mocked(api.get).mockImplementation(async (url) => {
+      if (url === "/usuarios/actor/permisos")
+        return { data: categoryPermissions } as never;
+      if (url === "/categorias/arbol") return { data: [parent] } as never;
+      const effectiveResponse = effectiveRouteResponse(String(url));
+      if (effectiveResponse) return effectiveResponse as never;
+      if (url === "/atributos")
+        return { data: { items: [{
+          id: "attribute-child",
+          nombre: "Atributo de la subcategoría",
+          tipo_dato: "decimal",
+          unidad_id: "unit-gb",
+          activo: true,
+        }] } } as never;
+      if (url === "/atributos/attribute-child/reversion")
+        return {
+          data: {
+            can_undo: true,
+            can_reactivate: false,
+            operacion: "annotate_unit",
+            creado_en: "2026-10-27T12:00:00Z",
+            valores_afectados: 3,
+            categorias_afectadas: 1,
+            motivo: null,
+          },
+        } as never;
+      if (url === "/catalogos") return { data: [] } as never;
+      throw new Error(`Solicitud inesperada: ${String(url)}`);
+    });
+    vi.mocked(api.post).mockResolvedValue({ data: { ok: true } } as never);
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "Acciones de Atributo de la subcategoría",
+      }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Revisar último cambio global" }),
+    );
+    expect(await screen.findByText(/Última operación: Anotación de unidad/)).toBeInTheDocument();
+    expect(screen.getByText(/3 valores y 1 asignaciones/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Revertir último cambio" }));
+
+    expect(api.post).toHaveBeenCalledWith("/atributos/attribute-child/revertir");
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["unidades", "actor"],
+    });
+  });
+
   it("edita inline y muestra el nombre actualizado en Categorías tras confirmar el preview", async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
@@ -1784,6 +1850,83 @@ describe("CategoriasPage", () => {
       screen.queryByRole("checkbox", { name: "Usa unidad" }),
     ).not.toBeInTheDocument();
     expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      "ATTRIBUTE_UNIT_CHANGE_REQUIRES_CONVERSION",
+      "swap",
+      "El cambio de unidad requiere migración.",
+    ],
+    [
+      "ATTRIBUTE_UNIT_REMOVAL_REQUIRES_MIGRATION",
+      "remove",
+      "La unidad no se puede retirar.",
+    ],
+  ])("muestra el historial y conserva el borrador para unidad %s", async (code, action, message) => {
+    const user = userEvent.setup();
+    includeUnitReadPermission = true;
+    vi.mocked(api.post).mockRejectedValue({
+      response: {
+        status: 409,
+        data: {
+          detail: {
+            code,
+            message,
+            conteos: {
+              valores_activos: 2,
+              valores_inactivos: 1,
+              valores_historicos: 3,
+              snapshots_historicos: 2,
+            },
+            acciones_permitidas: ["cancelar"],
+          },
+        },
+      },
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <CategoriasPage />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Expandir Categoría padre" }),
+    );
+    await user.click(screen.getByRole("button", { name: /^Subcategoría$/ }));
+    await user.click(
+      screen.getByRole("button", { name: "Acciones de Atributo del padre" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Editar definición global" }),
+    );
+    if (action === "swap") {
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: "Unidad" }),
+        "unit-gb",
+      );
+    } else {
+      await user.click(screen.getByRole("checkbox", { name: "Usa unidad" }));
+    }
+    await user.click(screen.getByRole("button", { name: "Previsualizar cambios" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "2 valores activos, 1 inactivos, 3 históricos y 2 snapshots",
+    );
+    expect(api.put).not.toHaveBeenCalled();
+    if (action === "swap") {
+      expect(screen.getByRole("combobox", { name: "Unidad" })).toHaveValue("unit-gb");
+    } else {
+      expect(screen.getByRole("checkbox", { name: "Usa unidad" })).not.toBeChecked();
+      await user.click(screen.getByRole("checkbox", { name: "Usa unidad" }));
+      expect(screen.getByRole("combobox", { name: "Unidad" })).toHaveValue("unit-cm");
+    }
   });
 
   it("envía unidad_id null al solicitar quitar la unidad de una definición", async () => {
