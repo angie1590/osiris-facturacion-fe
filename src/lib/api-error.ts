@@ -11,7 +11,12 @@ interface ApiErrorShape {
       errors?: Record<string, string>;
       detail?:
         | string
-        | { code?: string; message?: string; msg?: string }
+          | {
+              code?: string;
+              message?: string;
+              msg?: string;
+              fields?: Record<string, string>;
+            }
         | Array<{
             code?: string;
             message?: string;
@@ -72,7 +77,10 @@ export function getApiErrorMessage(
 
 export function getApiFieldErrors(err: unknown): Record<string, string> {
   const data = (err as ApiErrorShape)?.response?.data;
-  const fields = { ...data?.errors };
+  const detailFields = data?.detail && typeof data.detail === "object" && !Array.isArray(data.detail)
+    ? data.detail.fields
+    : undefined;
+  const fields = { ...detailFields, ...data?.errors };
   if (Array.isArray(data?.detail)) {
     for (const issue of data.detail) {
       const path = issue.loc?.filter((part) => part !== "body").join(".");

@@ -33,7 +33,7 @@ const ChangePasswordPage = lazy(
 // App pages
 const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
 const PersonasPage = lazy(() => import("@/pages/PersonasPage"));
-const ProductosPage = lazy(() => import("@/pages/ProductosPage"));
+const ProductosPage = lazy(() => import("@/pages/ProductoCatalogPage"));
 const CategoriasPage = lazy(() => import("@/pages/CategoriasPage"));
 const UnidadesPage = lazy(() => import("@/pages/UnidadesPage"));
 const BodegasPage = lazy(() => import("@/pages/BodegasPage"));

@@ -3,7 +3,7 @@ import type { EffectivePermission } from "../personas/directory";
 type PermissionFlag = keyof Pick<EffectivePermission,
   "puede_leer" | "puede_crear" | "puede_actualizar" | "puede_eliminar"
 >;
-type Requirement = readonly ["CATEGORIAS" | "ATRIBUTOS" | "UNIDADES", PermissionFlag];
+type Requirement = readonly ["CATEGORIAS" | "ATRIBUTOS" | "UNIDADES" | "PRODUCTOS", PermissionFlag];
 
 export const catalogPermissionRequirements = {
   read_categories: [["CATEGORIAS", "puede_leer"]],
@@ -35,6 +35,10 @@ export const catalogPermissionRequirements = {
   update_unit: [["UNIDADES", "puede_actualizar"]],
   deactivate_unit: [["UNIDADES", "puede_eliminar"]],
   reactivate_unit: [["UNIDADES", "puede_actualizar"]],
+  read_products: [["PRODUCTOS", "puede_leer"]],
+  create_product: [["PRODUCTOS", "puede_crear"]],
+  update_product: [["PRODUCTOS", "puede_actualizar"]],
+  delete_product: [["PRODUCTOS", "puede_eliminar"]],
 } as const satisfies Record<string, readonly Requirement[]>;
 
 export type CatalogOperation = keyof typeof catalogPermissionRequirements;

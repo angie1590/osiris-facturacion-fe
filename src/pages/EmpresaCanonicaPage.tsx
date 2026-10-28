@@ -72,7 +72,7 @@ const schema = z
     agente_retencion: z.boolean(),
     agente_retencion_resolucion: z.string().trim().optional(),
     artesano_calificado: z.boolean(),
-    impuesto_catalogo_ids: z.array(z.string()),
+    impuesto_catalogo_ids: z.array(z.string()).min(1, "Selecciona al menos un impuesto para la empresa."),
     modo_emision: z.enum(["ELECTRONICO", "NOTA_VENTA_FISICA"]),
     direccion_matriz: z.string().trim().min(1, "Debe ingresar la dirección matriz."),
     email: z
@@ -525,7 +525,7 @@ export default function EmpresaCanonicaPage() {
     const next = selectedTaxIds.includes(taxId)
       ? selectedTaxIds.filter((id) => id !== taxId)
       : [...selectedTaxIds, taxId];
-    setValue("impuesto_catalogo_ids", next, { shouldDirty: true });
+    setValue("impuesto_catalogo_ids", next, { shouldDirty: true, shouldValidate: true });
   };
 
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -973,6 +973,11 @@ export default function EmpresaCanonicaPage() {
               <div className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 Seleccionados: {selectedTaxes.map((tax) => tax.descripcion).join(" · ")}
               </div>
+            )}
+            {errors.impuesto_catalogo_ids?.message && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                {errors.impuesto_catalogo_ids.message}
+              </p>
             )}
           </div>
         </ConfigurationPanel>

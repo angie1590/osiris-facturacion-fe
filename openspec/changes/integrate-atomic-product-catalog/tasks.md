@@ -7,20 +7,20 @@
 
 ## 2. Gate 7.6 — Formulario integral
 
-- [ ] 2.1 Añadir tipos y clientes para categorías seleccionables, atributos efectivos, detalle, alta/edición y preview.
-- [ ] 2.2 Unificar formulario y navegación de producto en `/productos`; redirigir aliases ingleses conservando create/detail/edit.
-- [ ] 2.3 Cargar atributos efectivos por UUID; renderizar tipos, opciones, límites y unidades sin inventar defaults ni contaminar valores.
-- [ ] 2.4 Precargar edición desde detalle canónico y enviar categoría, datos generales, impuestos y EAV en una sola mutación.
-- [ ] 2.5 Implementar diálogo de cambio de categoría que muestre conservados, desactivados, defaults y faltantes, y confirme con token vigente.
-- [ ] 2.6 Mapear errores `fields`, 422, 409 stale y fallos de red; conservar el borrador y solicitar preview nuevo cuando corresponda.
-- [ ] 2.7 Aplicar permisos efectivos de Producto a ruta y acciones; distinguir pendiente, denegado, error y vacío.
-- [ ] 2.8 Retirar del flujo canónico `usuario_auditoria`, `categoria_ids`, GET legacy y segundo PUT EAV una vez habilitado el contrato BE.
+- [x] 2.1 Añadir tipos y clientes para categorías seleccionables, atributos efectivos, detalle, alta/edición y preview.
+- [x] 2.2 Unificar formulario y navegación de producto en `/productos`; redirigir aliases ingleses conservando create/detail/edit.
+- [x] 2.3 Cargar atributos efectivos por UUID; renderizar tipos, opciones, límites y unidades sin inventar defaults ni contaminar valores.
+- [x] 2.4 Precargar edición desde detalle canónico y enviar categoría, datos generales, impuestos y EAV en una sola mutación.
+- [x] 2.5 Implementar diálogo de cambio de categoría que muestre conservados, desactivados, defaults y faltantes, y confirme con token vigente.
+- [x] 2.6 Mapear errores `fields`, 422, 409 stale y fallos de red; conservar el borrador y solicitar preview nuevo cuando corresponda.
+- [x] 2.7 Aplicar permisos efectivos de Producto a ruta y acciones; distinguir pendiente, denegado, error y vacío.
+- [x] 2.8 Retirar del flujo canónico `usuario_auditoria`, `categoria_ids`, GET legacy y segundo PUT EAV una vez habilitado el contrato BE.
 
 ## 3. Gate 7.8 — Verificación y cierre
 
-- [ ] 3.1 Probar alta, edición, carga de atributos/unidades, preview, confirmación, errores y permisos efectivos.
-- [ ] 3.2 Ejecutar suite FE completa, lint y build.
-- [ ] 3.3 Ejecutar Playwright autenticado con productos activos para alta, edición y cambio de categoría; comprobar navegación/responsive.
-- [ ] 3.4 Limpiar fixture de prueba y verificar conteos; confirmar que no se alteraron stock, kardex, compras, ventas, SRI ni documentos.
+- [x] 3.1 Probar alta, edición, carga de atributos/unidades, preview, confirmación, errores y permisos efectivos.
+- [x] 3.2 Ejecutar suite FE completa, lint y build.
+- [x] 3.3 Ejecutar Playwright autenticado con productos activos para alta, edición y cambio de categoría; comprobar navegación/responsive.
+- [x] 3.4 Limpiar fixture de prueba y verificar conteos; confirmar que no se alteraron stock, kardex, compras, ventas, SRI ni documentos.
 - [ ] 3.5 Retirar GET legacy y página/ruta duplicada solo después del cutover BE y de verificar cero consumidores.
-- [ ] 3.6 Actualizar documentación y registrar evidencia coordinada de cada gate.
+- [x] 3.6 Actualizar documentación y registrar evidencia coordinada de cada gate.

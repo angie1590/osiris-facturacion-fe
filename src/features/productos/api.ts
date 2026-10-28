@@ -6,6 +6,9 @@ export interface ProductoListado {
   tipo: "BIEN" | "SERVICIO";
   pvp: string;
   cantidad: string;
+  categoria_principal?: CategoriaOption | null;
+  categoria_ruta?: CategoriaOption[];
+  categorias?: CategoriaOption[];
 }
 
 export interface CategoriaOption {
@@ -33,9 +36,122 @@ export interface ProductoCreateInput {
   usuario_auditoria: string;
 }
 
+export type ProductoAtributoScalar = string | number | boolean | null;
+
+export interface ProductoAtributoUnidad {
+  id: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string;
+  magnitud_codigo: string;
+}
+
+export interface ProductoAtributoRestricciones {
+  allow_negative: boolean;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+}
+
 export interface ProductoAtributoValue {
-  atributo: { id?: string; nombre: string; tipo_dato?: string | null };
-  valor: string | number | boolean | null;
+  atributo: ProductoAtributoDetail;
+  valor: ProductoAtributoScalar;
+  obligatorio?: boolean | null;
+  orden?: number | null;
+}
+
+export interface ProductoAtributoDetail {
+  id: string;
+  codigo?: string | null;
+  nombre: string;
+  tipo_dato: string;
+  unidad_id?: string | null;
+  unidad?: ProductoAtributoUnidad | null;
+  restricciones?: ProductoAtributoRestricciones | null;
+  select_options?: string[] | null;
+  catalog_id?: string | null;
+  allow_negative?: boolean;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  categoria_origen_id?: string | null;
+  categoria_origen?: CategoriaOption | null;
+  heredado?: boolean;
+}
+
+export interface ProductoAtributoEfectivo {
+  atributo_id: string;
+  codigo: string;
+  nombre: string;
+  tipo_dato: string;
+  unidad_id: string | null;
+  unidad: ProductoAtributoUnidad | null;
+  restricciones: ProductoAtributoRestricciones;
+  select_options?: string[] | null;
+  catalog_id?: string | null;
+  obligatorio: boolean;
+  valor_default?: string | number | boolean | null;
+  orden?: number | null;
+  categoria_origen: CategoriaOption;
+  profundidad: number;
+  heredado: boolean;
+}
+
+export interface ProductoIntegralAttributeInput {
+  atributo_id: string;
+  valor: ProductoAtributoScalar;
+}
+
+export interface ProductoIntegralCreateInput {
+  nombre: string;
+  descripcion?: string | null;
+  codigo_barras?: string | null;
+  tipo: "BIEN" | "SERVICIO";
+  pvp: number;
+  permite_fracciones?: boolean;
+  casa_comercial_id?: string | null;
+  categoria_principal_id: string;
+  impuesto_catalogo_ids: string[];
+  atributos: ProductoIntegralAttributeInput[];
+}
+
+export interface ProductoIntegralUpdateInput {
+  nombre?: string | null;
+  descripcion?: string | null;
+  codigo_barras?: string | null;
+  tipo?: "BIEN" | "SERVICIO" | null;
+  pvp?: number | null;
+  permite_fracciones?: boolean | null;
+  casa_comercial_id?: string | null;
+  categoria_principal_id: string;
+  impuesto_catalogo_ids?: string[] | null;
+  atributos?: ProductoIntegralAttributeInput[] | null;
+  precondicion_preview?: string | null;
+}
+
+export interface ProductoCambioCategoriaImpacto {
+  atributo_id: string;
+  codigo: string;
+  nombre: string;
+  valor?: ProductoAtributoScalar;
+  motivo: string;
+}
+
+export interface ProductoCambioCategoriaPreview {
+  operacion: string;
+  producto_id: string;
+  categoria_actual_id: string | null;
+  categoria_actual_ruta: string | null;
+  categoria_destino_id: string;
+  categoria_destino_ruta: string;
+  resumen: string;
+  conteos: Record<string, number>;
+  conservados: ProductoCambioCategoriaImpacto[];
+  desactivados: ProductoCambioCategoriaImpacto[];
+  defaults: ProductoCambioCategoriaImpacto[];
+  faltantes: ProductoCambioCategoriaImpacto[];
+  incompatibles: ProductoCambioCategoriaImpacto[];
+  requiere_confirmacion: boolean;
+  acciones_permitidas: string[];
+  precondicion_preview: string;
 }
 
 export interface ProveedorPersonaProducto {
@@ -53,16 +169,24 @@ export interface ProveedorSociedadProducto {
 
 export interface ProductoImpuestoDetalle {
   id: string;
-  tipo_impuesto: "IVA" | "ICE";
+  tipo_impuesto: "IVA" | "ICE" | "IRBPNR";
   nombre: string;
   codigo: string;
   porcentaje: string;
 }
 
-export interface ProductoDetalle extends Omit<ProductoCreateInput, "impuesto_catalogo_ids"> {
+export interface ProductoDetalle {
   id: string;
+  nombre: string;
+  descripcion: string | null;
+  codigo_barras: string | null;
+  tipo: "BIEN" | "SERVICIO";
+  pvp: string;
   cantidad: string;
   permite_fracciones: boolean;
+  categoria_principal: CategoriaOption | null;
+  categoria_ruta: CategoriaOption[];
+  categorias: CategoriaOption[];
   atributos: ProductoAtributoValue[];
   bodegas: BodegaStock[];
   proveedores_persona: ProveedorPersonaProducto[];
@@ -75,7 +199,7 @@ export interface BodegaStock {
   bodega_id: string;
   codigo_bodega: string;
   nombre_bodega: string;
-  cantidad: number;
+  cantidad: number | string;
 }
 
 export interface BodegaOption {
@@ -120,6 +244,18 @@ export async function getCategorias() {
   return response.data.items;
 }
 
+export async function getCategoriasSeleccionables() {
+  const response = await api.get<CategoriaOption[]>("/categorias/seleccionables");
+  return response.data;
+}
+
+export async function getAtributosEfectivos(categoriaId: string) {
+  const response = await api.get<ProductoAtributoEfectivo[]>(
+    `/categorias/${categoriaId}/atributos-efectivos`,
+  );
+  return response.data;
+}
+
 export async function getImpuestosActivos() {
   const response = await api.get<{ items: ImpuestoOption[] }>("/impuestos/activos-vigentes", {
     params: { limit: 1000, offset: 0 },
@@ -146,6 +282,11 @@ export async function createProducto(input: ProductoCreateInput) {
   return response.data;
 }
 
+export async function createProductoIntegral(input: ProductoIntegralCreateInput) {
+  const response = await api.post<ProductoDetalle>("/productos", input);
+  return response.data;
+}
+
 export async function getProducto(id: string) {
   const response = await api.get<ProductoDetalle>(`/productos/${id}`);
   return response.data;
@@ -153,6 +294,28 @@ export async function getProducto(id: string) {
 
 export async function updateProducto(id: string, input: Partial<ProductoCreateInput>) {
   const response = await api.put(`/productos/${id}`, { ...input, usuario_auditoria: "frontend" });
+  return response.data;
+}
+
+export async function updateProductoIntegral(
+  id: string,
+  input: ProductoIntegralUpdateInput,
+) {
+  const response = await api.put<ProductoDetalle>(`/productos/${id}`, input);
+  return response.data;
+}
+
+export async function previewCambioCategoriaProducto(
+  id: string,
+  input: {
+    categoria_principal_id: string;
+    atributos: ProductoIntegralAttributeInput[];
+  },
+) {
+  const response = await api.post<ProductoCambioCategoriaPreview>(
+    `/productos/${id}/previsualizar-cambio-categoria`,
+    input,
+  );
   return response.data;
 }
 

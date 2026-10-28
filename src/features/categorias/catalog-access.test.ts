@@ -26,6 +26,10 @@ const matrix: Array<[CatalogOperation[], Array<[string, keyof EffectivePermissio
   [["create_unit"], [["UNIDADES", "puede_crear"]]],
   [["update_unit", "reactivate_unit"], [["UNIDADES", "puede_actualizar"]]],
   [["deactivate_unit"], [["UNIDADES", "puede_eliminar"]]],
+  [["read_products"], [["PRODUCTOS", "puede_leer"]]],
+  [["create_product"], [["PRODUCTOS", "puede_crear"]]],
+  [["update_product"], [["PRODUCTOS", "puede_actualizar"]]],
+  [["delete_product"], [["PRODUCTOS", "puede_eliminar"]]],
 ];
 
 describe("catalog effective access mirrors catalog_permissions.py", () => {
@@ -35,7 +39,7 @@ describe("catalog effective access mirrors catalog_permissions.py", () => {
 
   for (const [operations, requirements] of matrix) {
     it.each(operations)("requires all effective grants for %s", (operation) => {
-      const permissions = ["CATEGORIAS", "ATRIBUTOS", "UNIDADES"].map((module) =>
+      const permissions = ["CATEGORIAS", "ATRIBUTOS", "UNIDADES", "PRODUCTOS"].map((module) =>
         grant(module, Object.fromEntries(requirements.filter(([code]) => code === module).map(([, flag]) => [flag, true]))),
       );
       expect(catalogAccess(ready(permissions), operation)).toBe("permitido");
