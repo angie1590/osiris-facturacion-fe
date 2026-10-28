@@ -5,7 +5,7 @@
 - El formulario trabaja con atributos efectivos por UUID, unidad y origen; serializa booleanos/números sin etiquetas visuales, deja que backend aplique defaults explícitos y no inventa valores.
 - Alta y edición usan un solo POST/PUT integral. La edición parte del detalle canónico. El cambio de categoría muestra el impacto y solo confirma con el token del preview actual.
 - Tests UI cubren alta, edición, defaults, unidad/número, faltantes, token, stale/renovación, 422/red con borrador conservado, deep link y permisos. Los auxiliares de bodegas/proveedores siguen disponibles en el detalle.
-- Verificación final: suite FE 344 passed en 32 archivos; lint, build y OpenSpec strict limpios. BE coordinado: 1323 passed, 81 skipped; Ruff, mypy fuente focal y OpenSpec strict limpios. La prueba concurrente PostgreSQL opt-in pasó 1/1 en schema temporal.
+- Verificación final: suite FE 344 passed en 32 archivos; lint y build limpios. BE coordinado: 1329 passed, 81 skipped; Ruff, mypy fuente focal y OpenSpec strict limpios. La prueba concurrente PostgreSQL opt-in pasó 1/1 en schema temporal.
 - E2E Playwright autenticado: alta integral, edición con un PUT, preview y confirmación de cambio Teclado→Mouse con token. IVA 0% ya configurado; default explícito Núm. Botones=3.
 - La ficha de Empresa permite varias tarifas y muestra error si se quita la última; backend no inserta IVA 0% implícitamente. El formulario Producto inicia sin IVA preseleccionado y exige elegir la tarifa aplicable.
 - ICE solo aparece si `/productos/impuestos-disponibles` devuelve opciones ICE para empresa y tipo de producto; la prueba cubre ambos casos.
